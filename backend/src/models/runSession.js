@@ -1,160 +1,204 @@
 const mongoose = require('mongoose');
 
-const locationPointSchema = new mongoose.Schema({
-  type: {
-    type: String,
-    enum: ['Point'],
-    default: 'Point'
-  },
-  coordinates: {
-    type: [Number], // [longitude, latitude]
-    required: true
-  },
-  timestamp: {
-    type: Date,
-    default: Date.now
-  },
-  elevation: Number,
-  speed: Number // in meters per second
-}, { _id: false });
-
-const participantSchema = new mongoose.Schema({
+const runSessionSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
-  role: {
-    type: String,
-    enum: ['leader', 'participant'],
-    default: 'participant'
-  },
-  joinedAt: {
-    type: Date,
-    default: Date.now
-  },
-  status: {
-    type: String,
-    enum: ['active', 'paused', 'finished', 'dropped'],
-    default: 'active'
-  },
-  currentLocation: locationPointSchema,
-  route: [locationPointSchema],
-  stats: {
-    distance: {
-      type: Number,
-      default: 0 // in meters
-    },
-    duration: {
-      type: Number,
-      default: 0 // in seconds
-    },
-    averageSpeed: {
-      type: Number,
-      default: 0 // in meters per second
-    },
-    currentSpeed: {
-      type: Number,
-      default: 0 // in meters per second
-    },
-    elevationGain: {
-      type: Number,
-      default: 0 // in meters
-    }
-  }
-}, { _id: false });
-
-const runSessionSchema = new mongoose.Schema({
   title: {
     type: String,
     required: true
   },
   description: String,
-  group: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Group'
+  startTime: {
+    type: Date,
+    default: Date.now
   },
+  endTime: Date,
   status: {
     type: String,
-    enum: ['scheduled', 'active', 'paused', 'completed', 'cancelled'],
-    default: 'scheduled'
+    enum: ['active', 'paused', 'completed', 'cancelled'],
+    default: 'active'
   },
   type: {
     type: String,
-    enum: ['casual', 'training', 'race', 'social'],
-    default: 'casual'
+    enum: ['solo', 'group', 'challenge'],
+    default: 'solo'
   },
-  startTime: {
-    type: Date,
-    required: true
-  },
-  plannedDistance: {
-    type: Number, // in kilometers
-    required: true
-  },
-  participants: [participantSchema],
-  stats: {
-    actualDistance: {
-      type: Number,
-      default: 0 // in kilometers
+  participants: [{
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
     },
-    duration: {
-      type: Number,
-      default: 0 // in minutes
+    role: {
+      type: String,
+      enum: ['host', 'participant'],
+      default: 'participant'
     },
-    averagePace: {
-      type: Number,
-      default: 0 // in minutes per kilometer
+    joinedAt: {
+      type: Date,
+      default: Date.now
     }
-  }
+  }],
+  locationHistory: [{
+    coordinates: {
+      type: [Number], // [longitude, latitude]
+      required: true
+    },
+    timestamp: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  metrics: [{
+    distance: Number, // in meters
+    duration: Number, // in seconds
+    pace: Number, // in minutes per kilometer
+    speed: Number, // in kilometers per hour
+    calories: Number,
+    elevation: Number, // in meters
+    heartRate: Number, // beats per minute
+    timestamp: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  finalMetrics: {
+    totalDistance: Number,
+    totalDuration: Number,
+    averagePace: Number,
+    averageSpeed: Number,
+    totalCalories: Number,
+    elevationGain: Number,
+    averageHeartRate: Number
+  },
+  weather: {
+    temperature: Number,
+    condition: String,
+    humidity: Number,
+    windSpeed: Number
+  },
+  route: {
+    name: String,
+    difficulty: {
+      type: String,
+      enum: ['easy', 'moderate', 'hard', 'extreme']
+    },
+    terrain: {
+      type: String,
+      enum: ['road', 'trail', 'track', 'mixed']
+    }
+  },
+  chat: [{
+    sender: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true
+    },
+    message: {
+      type: String,
+      required: true
+    },
+    timestamp: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  privacy: {
+    type: String,
+    enum: ['public', 'friends', 'private'],
+    default: 'public'
+  },
+  tags: [String],
+  photos: [{
+    url: String,
+    caption: String,
+    location: {
+      type: [Number], // [longitude, latitude]
+    },
+    timestamp: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  comments: [{
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    text: String,
+    timestamp: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  likes: [{
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    timestamp: {
+      type: Date,
+      default: Date.now
+    }
+  }]
 }, {
   timestamps: true
 });
 
-// Indexes for efficient queries
-runSessionSchema.index({ group: 1, status: 1 });
-runSessionSchema.index({ 'startTime': 1 });
+// Indexes for better query performance
+runSessionSchema.index({ user: 1, startTime: -1 });
+runSessionSchema.index({ status: 1 });
 runSessionSchema.index({ 'participants.user': 1 });
+runSessionSchema.index({ privacy: 1 });
+runSessionSchema.index({ tags: 1 });
 
-// Update stats when participant joins/leaves
-runSessionSchema.pre('save', function(next) {
-  if (this.isModified('participants')) {
-    this.stats.participantCount = this.participants.filter(
-      p => p.status === 'active'
-    ).length;
+// Virtual for calculating current pace
+runSessionSchema.virtual('currentPace').get(function() {
+  if (this.metrics && this.metrics.length > 0) {
+    return this.metrics[this.metrics.length - 1].pace;
   }
-  next();
-});
-
-// Virtual for checking if session is active
-runSessionSchema.virtual('isActive').get(function() {
-  return this.status === 'active';
+  return 0;
 });
 
 // Method to calculate session statistics
-runSessionSchema.methods.calculateStats = function() {
-  const activeParticipants = this.participants.filter(p => p.status === 'active');
-  
-  if (activeParticipants.length === 0) return;
+runSessionSchema.methods.calculateStatistics = function() {
+  if (!this.metrics || this.metrics.length === 0) return null;
 
-  // Calculate averages across all active participants
-  const totals = activeParticipants.reduce((acc, p) => {
-    return {
-      distance: acc.distance + p.stats.distance,
-      speed: acc.speed + p.stats.averageSpeed,
-      elevation: acc.elevation + p.stats.elevationGain
-    };
-  }, { distance: 0, speed: 0, elevation: 0 });
+  const stats = {
+    totalDistance: 0,
+    totalDuration: 0,
+    averagePace: 0,
+    averageSpeed: 0,
+    totalCalories: 0,
+    elevationGain: 0,
+    averageHeartRate: 0
+  };
 
-  const count = activeParticipants.length;
-  
-  this.stats.actualDistance = totals.distance / count / 1000; // Convert meters to kilometers
-  this.stats.averageSpeed = totals.speed / count;
-  this.stats.totalElevationGain = totals.elevation / count;
-  
-  if (this.stats.averageSpeed > 0) {
-    this.stats.averagePace = 16.6667 / this.stats.averageSpeed; // Convert m/s to min/km
+  let heartRateReadings = 0;
+
+  this.metrics.forEach(metric => {
+    stats.totalDistance += metric.distance || 0;
+    stats.totalDuration += metric.duration || 0;
+    stats.totalCalories += metric.calories || 0;
+    if (metric.elevation > 0) stats.elevationGain += metric.elevation;
+    if (metric.heartRate) {
+      stats.averageHeartRate += metric.heartRate;
+      heartRateReadings++;
+    }
+  });
+
+  if (stats.totalDuration > 0) {
+    stats.averageSpeed = (stats.totalDistance / 1000) / (stats.totalDuration / 3600);
+    stats.averagePace = stats.totalDuration / (stats.totalDistance / 1000) / 60;
   }
+
+  if (heartRateReadings > 0) {
+    stats.averageHeartRate = stats.averageHeartRate / heartRateReadings;
+  }
+
+  return stats;
 };
 
 const RunSession = mongoose.model('RunSession', runSessionSchema);
