@@ -23,7 +23,8 @@ mixin _$User {
   String get id => throw _privateConstructorUsedError;
   String get email => throw _privateConstructorUsedError;
   String get username => throw _privateConstructorUsedError;
-  String? get profilePicture => throw _privateConstructorUsedError;
+  String get name => throw _privateConstructorUsedError;
+  String get profileImage => throw _privateConstructorUsedError;
   String? get bio => throw _privateConstructorUsedError;
   bool get isOnline => throw _privateConstructorUsedError;
   DateTime? get lastActive => throw _privateConstructorUsedError;
@@ -49,7 +50,8 @@ abstract class $UserCopyWith<$Res> {
       {String id,
       String email,
       String username,
-      String? profilePicture,
+      String name,
+      String profileImage,
       String? bio,
       bool isOnline,
       DateTime? lastActive,
@@ -76,7 +78,8 @@ class _$UserCopyWithImpl<$Res, $Val extends User>
     Object? id = null,
     Object? email = null,
     Object? username = null,
-    Object? profilePicture = freezed,
+    Object? name = null,
+    Object? profileImage = null,
     Object? bio = freezed,
     Object? isOnline = null,
     Object? lastActive = freezed,
@@ -97,10 +100,14 @@ class _$UserCopyWithImpl<$Res, $Val extends User>
           ? _value.username
           : username // ignore: cast_nullable_to_non_nullable
               as String,
-      profilePicture: freezed == profilePicture
-          ? _value.profilePicture
-          : profilePicture // ignore: cast_nullable_to_non_nullable
-              as String?,
+      name: null == name
+          ? _value.name
+          : name // ignore: cast_nullable_to_non_nullable
+              as String,
+      profileImage: null == profileImage
+          ? _value.profileImage
+          : profileImage // ignore: cast_nullable_to_non_nullable
+              as String,
       bio: freezed == bio
           ? _value.bio
           : bio // ignore: cast_nullable_to_non_nullable
@@ -140,7 +147,8 @@ abstract class _$$UserImplCopyWith<$Res> implements $UserCopyWith<$Res> {
       {String id,
       String email,
       String username,
-      String? profilePicture,
+      String name,
+      String profileImage,
       String? bio,
       bool isOnline,
       DateTime? lastActive,
@@ -164,7 +172,8 @@ class __$$UserImplCopyWithImpl<$Res>
     Object? id = null,
     Object? email = null,
     Object? username = null,
-    Object? profilePicture = freezed,
+    Object? name = null,
+    Object? profileImage = null,
     Object? bio = freezed,
     Object? isOnline = null,
     Object? lastActive = freezed,
@@ -185,10 +194,14 @@ class __$$UserImplCopyWithImpl<$Res>
           ? _value.username
           : username // ignore: cast_nullable_to_non_nullable
               as String,
-      profilePicture: freezed == profilePicture
-          ? _value.profilePicture
-          : profilePicture // ignore: cast_nullable_to_non_nullable
-              as String?,
+      name: null == name
+          ? _value.name
+          : name // ignore: cast_nullable_to_non_nullable
+              as String,
+      profileImage: null == profileImage
+          ? _value.profileImage
+          : profileImage // ignore: cast_nullable_to_non_nullable
+              as String,
       bio: freezed == bio
           ? _value.bio
           : bio // ignore: cast_nullable_to_non_nullable
@@ -224,7 +237,8 @@ class _$UserImpl implements _User {
       {required this.id,
       required this.email,
       required this.username,
-      this.profilePicture,
+      required this.name,
+      required this.profileImage,
       this.bio,
       this.isOnline = false,
       this.lastActive,
@@ -245,7 +259,9 @@ class _$UserImpl implements _User {
   @override
   final String username;
   @override
-  final String? profilePicture;
+  final String name;
+  @override
+  final String profileImage;
   @override
   final String? bio;
   @override
@@ -282,7 +298,7 @@ class _$UserImpl implements _User {
 
   @override
   String toString() {
-    return 'User(id: $id, email: $email, username: $username, profilePicture: $profilePicture, bio: $bio, isOnline: $isOnline, lastActive: $lastActive, friends: $friends, pendingFriends: $pendingFriends, preferences: $preferences)';
+    return 'User(id: $id, email: $email, username: $username, name: $name, profileImage: $profileImage, bio: $bio, isOnline: $isOnline, lastActive: $lastActive, friends: $friends, pendingFriends: $pendingFriends, preferences: $preferences)';
   }
 
   @override
@@ -294,8 +310,9 @@ class _$UserImpl implements _User {
             (identical(other.email, email) || other.email == email) &&
             (identical(other.username, username) ||
                 other.username == username) &&
-            (identical(other.profilePicture, profilePicture) ||
-                other.profilePicture == profilePicture) &&
+            (identical(other.name, name) || other.name == name) &&
+            (identical(other.profileImage, profileImage) ||
+                other.profileImage == profileImage) &&
             (identical(other.bio, bio) || other.bio == bio) &&
             (identical(other.isOnline, isOnline) ||
                 other.isOnline == isOnline) &&
@@ -315,7 +332,8 @@ class _$UserImpl implements _User {
       id,
       email,
       username,
-      profilePicture,
+      name,
+      profileImage,
       bio,
       isOnline,
       lastActive,
@@ -344,7 +362,8 @@ abstract class _User implements User {
       {required final String id,
       required final String email,
       required final String username,
-      final String? profilePicture,
+      required final String name,
+      required final String profileImage,
       final String? bio,
       final bool isOnline,
       final DateTime? lastActive,
@@ -361,7 +380,9 @@ abstract class _User implements User {
   @override
   String get username;
   @override
-  String? get profilePicture;
+  String get name;
+  @override
+  String get profileImage;
   @override
   String? get bio;
   @override

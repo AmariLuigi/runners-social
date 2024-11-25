@@ -8,6 +8,8 @@ import 'routes/app_router.dart';
 import 'features/auth/data/repositories/auth_repository_impl.dart';
 import 'features/auth/domain/repositories/auth_repository.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
+import 'features/feed/data/repositories/feed_repository_impl.dart';
+import 'features/feed/domain/repositories/feed_repository.dart';
 
 final getIt = GetIt.instance;
 
@@ -19,6 +21,14 @@ void setupDependencies() {
   // Repositories
   getIt.registerLazySingleton<AuthRepository>(
     () => AuthRepositoryImpl(
+      client: getIt<http.Client>(),
+      storage: getIt<FlutterSecureStorage>(),
+      baseUrl: 'http://localhost:3000',
+    ),
+  );
+
+  getIt.registerLazySingleton<FeedRepository>(
+    () => FeedRepositoryImpl(
       client: getIt<http.Client>(),
       storage: getIt<FlutterSecureStorage>(),
       baseUrl: 'http://localhost:3000',
