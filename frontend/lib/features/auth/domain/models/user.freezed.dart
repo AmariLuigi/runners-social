@@ -19,16 +19,10 @@ mixin _$User {
   String get id => throw _privateConstructorUsedError;
   String get email => throw _privateConstructorUsedError;
   String get username => throw _privateConstructorUsedError;
-<<<<<<< HEAD
   String get firstName => throw _privateConstructorUsedError;
   String get lastName => throw _privateConstructorUsedError;
   String get bio => throw _privateConstructorUsedError;
   String get profileImage => throw _privateConstructorUsedError;
-=======
-  String get name => throw _privateConstructorUsedError;
-  String get profileImage => throw _privateConstructorUsedError;
-  String? get bio => throw _privateConstructorUsedError;
->>>>>>> 90bb2c9b6a8e3ff21226d37400ff32ff12ce07fd
   bool get isOnline => throw _privateConstructorUsedError;
   DateTime? get lastActive => throw _privateConstructorUsedError;
   List<String> get friends => throw _privateConstructorUsedError;
@@ -50,16 +44,10 @@ abstract class $UserCopyWith<$Res> {
       {String id,
       String email,
       String username,
-<<<<<<< HEAD
       String firstName,
       String lastName,
       String bio,
       String profileImage,
-=======
-      String name,
-      String profileImage,
-      String? bio,
->>>>>>> 90bb2c9b6a8e3ff21226d37400ff32ff12ce07fd
       bool isOnline,
       DateTime? lastActive,
       List<String> friends,
@@ -85,16 +73,10 @@ class _$UserCopyWithImpl<$Res, $Val extends User>
     Object? id = null,
     Object? email = null,
     Object? username = null,
-<<<<<<< HEAD
     Object? firstName = null,
     Object? lastName = null,
     Object? bio = null,
     Object? profileImage = null,
-=======
-    Object? name = null,
-    Object? profileImage = null,
-    Object? bio = freezed,
->>>>>>> 90bb2c9b6a8e3ff21226d37400ff32ff12ce07fd
     Object? isOnline = null,
     Object? lastActive = freezed,
     Object? friends = null,
@@ -114,7 +96,6 @@ class _$UserCopyWithImpl<$Res, $Val extends User>
           ? _value.username
           : username // ignore: cast_nullable_to_non_nullable
               as String,
-<<<<<<< HEAD
       firstName: null == firstName
           ? _value.firstName
           : firstName // ignore: cast_nullable_to_non_nullable
@@ -124,17 +105,6 @@ class _$UserCopyWithImpl<$Res, $Val extends User>
           : lastName // ignore: cast_nullable_to_non_nullable
               as String,
       bio: null == bio
-=======
-      name: null == name
-          ? _value.name
-          : name // ignore: cast_nullable_to_non_nullable
-              as String,
-      profileImage: null == profileImage
-          ? _value.profileImage
-          : profileImage // ignore: cast_nullable_to_non_nullable
-              as String,
-      bio: freezed == bio
->>>>>>> 90bb2c9b6a8e3ff21226d37400ff32ff12ce07fd
           ? _value.bio
           : bio // ignore: cast_nullable_to_non_nullable
               as String,
@@ -177,16 +147,10 @@ abstract class _$$UserImplCopyWith<$Res> implements $UserCopyWith<$Res> {
       {String id,
       String email,
       String username,
-<<<<<<< HEAD
       String firstName,
       String lastName,
       String bio,
       String profileImage,
-=======
-      String name,
-      String profileImage,
-      String? bio,
->>>>>>> 90bb2c9b6a8e3ff21226d37400ff32ff12ce07fd
       bool isOnline,
       DateTime? lastActive,
       List<String> friends,
@@ -209,16 +173,10 @@ class __$$UserImplCopyWithImpl<$Res>
     Object? id = null,
     Object? email = null,
     Object? username = null,
-<<<<<<< HEAD
     Object? firstName = null,
     Object? lastName = null,
     Object? bio = null,
     Object? profileImage = null,
-=======
-    Object? name = null,
-    Object? profileImage = null,
-    Object? bio = freezed,
->>>>>>> 90bb2c9b6a8e3ff21226d37400ff32ff12ce07fd
     Object? isOnline = null,
     Object? lastActive = freezed,
     Object? friends = null,
@@ -238,7 +196,6 @@ class __$$UserImplCopyWithImpl<$Res>
           ? _value.username
           : username // ignore: cast_nullable_to_non_nullable
               as String,
-<<<<<<< HEAD
       firstName: null == firstName
           ? _value.firstName
           : firstName // ignore: cast_nullable_to_non_nullable
@@ -248,17 +205,6 @@ class __$$UserImplCopyWithImpl<$Res>
           : lastName // ignore: cast_nullable_to_non_nullable
               as String,
       bio: null == bio
-=======
-      name: null == name
-          ? _value.name
-          : name // ignore: cast_nullable_to_non_nullable
-              as String,
-      profileImage: null == profileImage
-          ? _value.profileImage
-          : profileImage // ignore: cast_nullable_to_non_nullable
-              as String,
-      bio: freezed == bio
->>>>>>> 90bb2c9b6a8e3ff21226d37400ff32ff12ce07fd
           ? _value.bio
           : bio // ignore: cast_nullable_to_non_nullable
               as String,
@@ -297,16 +243,10 @@ class _$UserImpl extends _User {
       {required this.id,
       required this.email,
       required this.username,
-<<<<<<< HEAD
       this.firstName = '',
       this.lastName = '',
       this.bio = '',
       this.profileImage = '/default-profile.png',
-=======
-      required this.name,
-      required this.profileImage,
-      this.bio,
->>>>>>> 90bb2c9b6a8e3ff21226d37400ff32ff12ce07fd
       this.isOnline = false,
       this.lastActive,
       final List<String> friends = const [],
@@ -324,14 +264,8 @@ class _$UserImpl extends _User {
   @override
   final String username;
   @override
-<<<<<<< HEAD
   @JsonKey()
   final String firstName;
-=======
-  final String name;
-  @override
-  final String profileImage;
->>>>>>> 90bb2c9b6a8e3ff21226d37400ff32ff12ce07fd
   @override
   @JsonKey()
   final String lastName;
@@ -375,11 +309,7 @@ class _$UserImpl extends _User {
 
   @override
   String toString() {
-<<<<<<< HEAD
     return 'User(id: $id, email: $email, username: $username, firstName: $firstName, lastName: $lastName, bio: $bio, profileImage: $profileImage, isOnline: $isOnline, lastActive: $lastActive, friends: $friends, pendingFriends: $pendingFriends, preferences: $preferences)';
-=======
-    return 'User(id: $id, email: $email, username: $username, name: $name, profileImage: $profileImage, bio: $bio, isOnline: $isOnline, lastActive: $lastActive, friends: $friends, pendingFriends: $pendingFriends, preferences: $preferences)';
->>>>>>> 90bb2c9b6a8e3ff21226d37400ff32ff12ce07fd
   }
 
   @override
@@ -391,16 +321,10 @@ class _$UserImpl extends _User {
             (identical(other.email, email) || other.email == email) &&
             (identical(other.username, username) ||
                 other.username == username) &&
-<<<<<<< HEAD
             (identical(other.firstName, firstName) ||
                 other.firstName == firstName) &&
             (identical(other.lastName, lastName) ||
                 other.lastName == lastName) &&
-=======
-            (identical(other.name, name) || other.name == name) &&
-            (identical(other.profileImage, profileImage) ||
-                other.profileImage == profileImage) &&
->>>>>>> 90bb2c9b6a8e3ff21226d37400ff32ff12ce07fd
             (identical(other.bio, bio) || other.bio == bio) &&
             (identical(other.profileImage, profileImage) ||
                 other.profileImage == profileImage) &&
@@ -421,13 +345,8 @@ class _$UserImpl extends _User {
       id,
       email,
       username,
-<<<<<<< HEAD
       firstName,
       lastName,
-=======
-      name,
-      profileImage,
->>>>>>> 90bb2c9b6a8e3ff21226d37400ff32ff12ce07fd
       bio,
       profileImage,
       isOnline,
@@ -450,16 +369,10 @@ abstract class _User extends User {
       {required final String id,
       required final String email,
       required final String username,
-<<<<<<< HEAD
       final String firstName,
       final String lastName,
       final String bio,
       final String profileImage,
-=======
-      required final String name,
-      required final String profileImage,
-      final String? bio,
->>>>>>> 90bb2c9b6a8e3ff21226d37400ff32ff12ce07fd
       final bool isOnline,
       final DateTime? lastActive,
       final List<String> friends,
@@ -474,13 +387,7 @@ abstract class _User extends User {
   @override
   String get username;
   @override
-<<<<<<< HEAD
   String get firstName;
-=======
-  String get name;
-  @override
-  String get profileImage;
->>>>>>> 90bb2c9b6a8e3ff21226d37400ff32ff12ce07fd
   @override
   String get lastName;
   @override
