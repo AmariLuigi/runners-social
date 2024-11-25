@@ -12,7 +12,7 @@ class AuthState with _$AuthState {
   
   const factory AuthState.error(String message) = Error;
   
-  const factory AuthState.resetPasswordSuccess() = ResetPasswordSuccess;
+  const factory AuthState.resetPasswordEmailSent() = ResetPasswordEmailSent;
   
-  const factory AuthState.verifyEmailSuccess() = VerifyEmailSuccess;
+  const factory AuthState.emailVerified() = EmailVerified;
 }

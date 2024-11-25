@@ -32,7 +32,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       body: BlocListener<AuthBloc, AuthState>(
         listener: (context, state) {
           state.maybeWhen(
-            resetPasswordSuccess: () {
+            resetPasswordEmailSent: () {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('Password reset email sent!'),
@@ -106,9 +106,11 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
   void _handleSubmit() {
     if (_formKey.currentState?.validate() ?? false) {
-      context
-          .read<AuthBloc>()
-          .add(AuthEvent.resetPassword(email: _emailController.text));
+      context.read<AuthBloc>().add(
+            AuthEvent.resetPassword(
+              email: _emailController.text,
+            ),
+          );
     }
   }
 }

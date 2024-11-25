@@ -3,6 +3,7 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 import '../../../../core/error/failures.dart';
 import '../../domain/models/user.dart';
 import '../../domain/repositories/auth_repository.dart';
+import 'dart:developer' as developer;
 
 part 'auth_bloc.freezed.dart';
 part 'auth_event.dart';
@@ -35,8 +36,14 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(const AuthState.loading());
     final result = await _authRepository.getCurrentUser();
     result.fold(
-      (failure) => emit(const AuthState.unauthenticated()),
-      (user) => emit(AuthState.authenticated(user)),
+      (failure) {
+        developer.log('Auth check failed: ${failure.message}', name: 'Auth');
+        emit(const AuthState.unauthenticated());
+      },
+      (user) {
+        developer.log('Auth check successful: ${user.username}', name: 'Auth');
+        emit(AuthState.authenticated(user));
+      },
     );
   }
 
@@ -110,12 +117,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) async {
     emit(const AuthState.loading());
-    final result = await _authRepository.resetPassword(
-      email: event.email,
-    );
+    final result = await _authRepository.resetPassword(email: event.email);
     result.fold(
       (failure) => emit(AuthState.error(failure.message)),
-      (_) => emit(const AuthState.resetPasswordSuccess()),
+      (_) => emit(const AuthState.resetPasswordEmailSent()),
     );
   }
 
@@ -124,12 +129,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) async {
     emit(const AuthState.loading());
-    final result = await _authRepository.verifyEmail(
-      token: event.token,
-    );
+    final result = await _authRepository.verifyEmail(token: event.token);
     result.fold(
       (failure) => emit(AuthState.error(failure.message)),
-      (_) => emit(const AuthState.verifyEmailSuccess()),
+      (_) => emit(const AuthState.emailVerified()),
     );
   }
 
@@ -140,11 +143,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(const AuthState.loading());
     final result = await _authRepository.refreshToken();
     result.fold(
-      (failure) => emit(AuthState.error(failure.message)),
+      (failure) => emit(const AuthState.unauthenticated()),
       (_) async {
         final userResult = await _authRepository.getCurrentUser();
         userResult.fold(
-          (failure) => emit(AuthState.error(failure.message)),
+          (failure) => emit(const AuthState.unauthenticated()),
           (user) => emit(AuthState.authenticated(user)),
         );
       },

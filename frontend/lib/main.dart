@@ -88,13 +88,24 @@ class _MyAppState extends State<MyApp> {
           value: _authBloc,
         ),
       ],
-      child: MaterialApp.router(
-        title: 'Runners Social',
-        theme: AppTheme.lightTheme,
-        darkTheme: AppTheme.darkTheme,
-        themeMode: ThemeMode.system,
-        routerDelegate: _appRouter.delegate(),
-        routeInformationParser: _appRouter.defaultRouteParser(),
+      child: BlocListener<AuthBloc, AuthState>(
+        listener: (context, state) {
+          state.maybeWhen(
+            unauthenticated: () {
+              developer.log('User is unauthenticated, redirecting to login', name: 'Auth');
+              _appRouter.replaceAll([const LoginRoute()]);
+            },
+            orElse: () {},
+          );
+        },
+        child: MaterialApp.router(
+          title: 'Runners Social',
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: ThemeMode.system,
+          routerDelegate: _appRouter.delegate(),
+          routeInformationParser: _appRouter.defaultRouteParser(),
+        ),
       ),
     );
   }

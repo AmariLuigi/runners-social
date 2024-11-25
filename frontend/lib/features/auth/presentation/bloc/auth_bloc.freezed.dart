@@ -1529,8 +1529,8 @@ mixin _$AuthState {
     required TResult Function(User user) authenticated,
     required TResult Function() unauthenticated,
     required TResult Function(String message) error,
-    required TResult Function() resetPasswordSuccess,
-    required TResult Function() verifyEmailSuccess,
+    required TResult Function() resetPasswordEmailSent,
+    required TResult Function() emailVerified,
   }) =>
       throw _privateConstructorUsedError;
   @optionalTypeArgs
@@ -1540,8 +1540,8 @@ mixin _$AuthState {
     TResult? Function(User user)? authenticated,
     TResult? Function()? unauthenticated,
     TResult? Function(String message)? error,
-    TResult? Function()? resetPasswordSuccess,
-    TResult? Function()? verifyEmailSuccess,
+    TResult? Function()? resetPasswordEmailSent,
+    TResult? Function()? emailVerified,
   }) =>
       throw _privateConstructorUsedError;
   @optionalTypeArgs
@@ -1551,8 +1551,8 @@ mixin _$AuthState {
     TResult Function(User user)? authenticated,
     TResult Function()? unauthenticated,
     TResult Function(String message)? error,
-    TResult Function()? resetPasswordSuccess,
-    TResult Function()? verifyEmailSuccess,
+    TResult Function()? resetPasswordEmailSent,
+    TResult Function()? emailVerified,
     required TResult orElse(),
   }) =>
       throw _privateConstructorUsedError;
@@ -1563,8 +1563,9 @@ mixin _$AuthState {
     required TResult Function(Authenticated value) authenticated,
     required TResult Function(Unauthenticated value) unauthenticated,
     required TResult Function(Error value) error,
-    required TResult Function(ResetPasswordSuccess value) resetPasswordSuccess,
-    required TResult Function(VerifyEmailSuccess value) verifyEmailSuccess,
+    required TResult Function(ResetPasswordEmailSent value)
+        resetPasswordEmailSent,
+    required TResult Function(EmailVerified value) emailVerified,
   }) =>
       throw _privateConstructorUsedError;
   @optionalTypeArgs
@@ -1574,8 +1575,8 @@ mixin _$AuthState {
     TResult? Function(Authenticated value)? authenticated,
     TResult? Function(Unauthenticated value)? unauthenticated,
     TResult? Function(Error value)? error,
-    TResult? Function(ResetPasswordSuccess value)? resetPasswordSuccess,
-    TResult? Function(VerifyEmailSuccess value)? verifyEmailSuccess,
+    TResult? Function(ResetPasswordEmailSent value)? resetPasswordEmailSent,
+    TResult? Function(EmailVerified value)? emailVerified,
   }) =>
       throw _privateConstructorUsedError;
   @optionalTypeArgs
@@ -1585,8 +1586,8 @@ mixin _$AuthState {
     TResult Function(Authenticated value)? authenticated,
     TResult Function(Unauthenticated value)? unauthenticated,
     TResult Function(Error value)? error,
-    TResult Function(ResetPasswordSuccess value)? resetPasswordSuccess,
-    TResult Function(VerifyEmailSuccess value)? verifyEmailSuccess,
+    TResult Function(ResetPasswordEmailSent value)? resetPasswordEmailSent,
+    TResult Function(EmailVerified value)? emailVerified,
     required TResult orElse(),
   }) =>
       throw _privateConstructorUsedError;
@@ -1658,8 +1659,8 @@ class _$InitialImpl implements Initial {
     required TResult Function(User user) authenticated,
     required TResult Function() unauthenticated,
     required TResult Function(String message) error,
-    required TResult Function() resetPasswordSuccess,
-    required TResult Function() verifyEmailSuccess,
+    required TResult Function() resetPasswordEmailSent,
+    required TResult Function() emailVerified,
   }) {
     return initial();
   }
@@ -1672,8 +1673,8 @@ class _$InitialImpl implements Initial {
     TResult? Function(User user)? authenticated,
     TResult? Function()? unauthenticated,
     TResult? Function(String message)? error,
-    TResult? Function()? resetPasswordSuccess,
-    TResult? Function()? verifyEmailSuccess,
+    TResult? Function()? resetPasswordEmailSent,
+    TResult? Function()? emailVerified,
   }) {
     return initial?.call();
   }
@@ -1686,8 +1687,8 @@ class _$InitialImpl implements Initial {
     TResult Function(User user)? authenticated,
     TResult Function()? unauthenticated,
     TResult Function(String message)? error,
-    TResult Function()? resetPasswordSuccess,
-    TResult Function()? verifyEmailSuccess,
+    TResult Function()? resetPasswordEmailSent,
+    TResult Function()? emailVerified,
     required TResult orElse(),
   }) {
     if (initial != null) {
@@ -1704,8 +1705,9 @@ class _$InitialImpl implements Initial {
     required TResult Function(Authenticated value) authenticated,
     required TResult Function(Unauthenticated value) unauthenticated,
     required TResult Function(Error value) error,
-    required TResult Function(ResetPasswordSuccess value) resetPasswordSuccess,
-    required TResult Function(VerifyEmailSuccess value) verifyEmailSuccess,
+    required TResult Function(ResetPasswordEmailSent value)
+        resetPasswordEmailSent,
+    required TResult Function(EmailVerified value) emailVerified,
   }) {
     return initial(this);
   }
@@ -1718,8 +1720,8 @@ class _$InitialImpl implements Initial {
     TResult? Function(Authenticated value)? authenticated,
     TResult? Function(Unauthenticated value)? unauthenticated,
     TResult? Function(Error value)? error,
-    TResult? Function(ResetPasswordSuccess value)? resetPasswordSuccess,
-    TResult? Function(VerifyEmailSuccess value)? verifyEmailSuccess,
+    TResult? Function(ResetPasswordEmailSent value)? resetPasswordEmailSent,
+    TResult? Function(EmailVerified value)? emailVerified,
   }) {
     return initial?.call(this);
   }
@@ -1732,8 +1734,8 @@ class _$InitialImpl implements Initial {
     TResult Function(Authenticated value)? authenticated,
     TResult Function(Unauthenticated value)? unauthenticated,
     TResult Function(Error value)? error,
-    TResult Function(ResetPasswordSuccess value)? resetPasswordSuccess,
-    TResult Function(VerifyEmailSuccess value)? verifyEmailSuccess,
+    TResult Function(ResetPasswordEmailSent value)? resetPasswordEmailSent,
+    TResult Function(EmailVerified value)? emailVerified,
     required TResult orElse(),
   }) {
     if (initial != null) {
@@ -1793,8 +1795,8 @@ class _$LoadingImpl implements Loading {
     required TResult Function(User user) authenticated,
     required TResult Function() unauthenticated,
     required TResult Function(String message) error,
-    required TResult Function() resetPasswordSuccess,
-    required TResult Function() verifyEmailSuccess,
+    required TResult Function() resetPasswordEmailSent,
+    required TResult Function() emailVerified,
   }) {
     return loading();
   }
@@ -1807,8 +1809,8 @@ class _$LoadingImpl implements Loading {
     TResult? Function(User user)? authenticated,
     TResult? Function()? unauthenticated,
     TResult? Function(String message)? error,
-    TResult? Function()? resetPasswordSuccess,
-    TResult? Function()? verifyEmailSuccess,
+    TResult? Function()? resetPasswordEmailSent,
+    TResult? Function()? emailVerified,
   }) {
     return loading?.call();
   }
@@ -1821,8 +1823,8 @@ class _$LoadingImpl implements Loading {
     TResult Function(User user)? authenticated,
     TResult Function()? unauthenticated,
     TResult Function(String message)? error,
-    TResult Function()? resetPasswordSuccess,
-    TResult Function()? verifyEmailSuccess,
+    TResult Function()? resetPasswordEmailSent,
+    TResult Function()? emailVerified,
     required TResult orElse(),
   }) {
     if (loading != null) {
@@ -1839,8 +1841,9 @@ class _$LoadingImpl implements Loading {
     required TResult Function(Authenticated value) authenticated,
     required TResult Function(Unauthenticated value) unauthenticated,
     required TResult Function(Error value) error,
-    required TResult Function(ResetPasswordSuccess value) resetPasswordSuccess,
-    required TResult Function(VerifyEmailSuccess value) verifyEmailSuccess,
+    required TResult Function(ResetPasswordEmailSent value)
+        resetPasswordEmailSent,
+    required TResult Function(EmailVerified value) emailVerified,
   }) {
     return loading(this);
   }
@@ -1853,8 +1856,8 @@ class _$LoadingImpl implements Loading {
     TResult? Function(Authenticated value)? authenticated,
     TResult? Function(Unauthenticated value)? unauthenticated,
     TResult? Function(Error value)? error,
-    TResult? Function(ResetPasswordSuccess value)? resetPasswordSuccess,
-    TResult? Function(VerifyEmailSuccess value)? verifyEmailSuccess,
+    TResult? Function(ResetPasswordEmailSent value)? resetPasswordEmailSent,
+    TResult? Function(EmailVerified value)? emailVerified,
   }) {
     return loading?.call(this);
   }
@@ -1867,8 +1870,8 @@ class _$LoadingImpl implements Loading {
     TResult Function(Authenticated value)? authenticated,
     TResult Function(Unauthenticated value)? unauthenticated,
     TResult Function(Error value)? error,
-    TResult Function(ResetPasswordSuccess value)? resetPasswordSuccess,
-    TResult Function(VerifyEmailSuccess value)? verifyEmailSuccess,
+    TResult Function(ResetPasswordEmailSent value)? resetPasswordEmailSent,
+    TResult Function(EmailVerified value)? emailVerified,
     required TResult orElse(),
   }) {
     if (loading != null) {
@@ -1967,8 +1970,8 @@ class _$AuthenticatedImpl implements Authenticated {
     required TResult Function(User user) authenticated,
     required TResult Function() unauthenticated,
     required TResult Function(String message) error,
-    required TResult Function() resetPasswordSuccess,
-    required TResult Function() verifyEmailSuccess,
+    required TResult Function() resetPasswordEmailSent,
+    required TResult Function() emailVerified,
   }) {
     return authenticated(user);
   }
@@ -1981,8 +1984,8 @@ class _$AuthenticatedImpl implements Authenticated {
     TResult? Function(User user)? authenticated,
     TResult? Function()? unauthenticated,
     TResult? Function(String message)? error,
-    TResult? Function()? resetPasswordSuccess,
-    TResult? Function()? verifyEmailSuccess,
+    TResult? Function()? resetPasswordEmailSent,
+    TResult? Function()? emailVerified,
   }) {
     return authenticated?.call(user);
   }
@@ -1995,8 +1998,8 @@ class _$AuthenticatedImpl implements Authenticated {
     TResult Function(User user)? authenticated,
     TResult Function()? unauthenticated,
     TResult Function(String message)? error,
-    TResult Function()? resetPasswordSuccess,
-    TResult Function()? verifyEmailSuccess,
+    TResult Function()? resetPasswordEmailSent,
+    TResult Function()? emailVerified,
     required TResult orElse(),
   }) {
     if (authenticated != null) {
@@ -2013,8 +2016,9 @@ class _$AuthenticatedImpl implements Authenticated {
     required TResult Function(Authenticated value) authenticated,
     required TResult Function(Unauthenticated value) unauthenticated,
     required TResult Function(Error value) error,
-    required TResult Function(ResetPasswordSuccess value) resetPasswordSuccess,
-    required TResult Function(VerifyEmailSuccess value) verifyEmailSuccess,
+    required TResult Function(ResetPasswordEmailSent value)
+        resetPasswordEmailSent,
+    required TResult Function(EmailVerified value) emailVerified,
   }) {
     return authenticated(this);
   }
@@ -2027,8 +2031,8 @@ class _$AuthenticatedImpl implements Authenticated {
     TResult? Function(Authenticated value)? authenticated,
     TResult? Function(Unauthenticated value)? unauthenticated,
     TResult? Function(Error value)? error,
-    TResult? Function(ResetPasswordSuccess value)? resetPasswordSuccess,
-    TResult? Function(VerifyEmailSuccess value)? verifyEmailSuccess,
+    TResult? Function(ResetPasswordEmailSent value)? resetPasswordEmailSent,
+    TResult? Function(EmailVerified value)? emailVerified,
   }) {
     return authenticated?.call(this);
   }
@@ -2041,8 +2045,8 @@ class _$AuthenticatedImpl implements Authenticated {
     TResult Function(Authenticated value)? authenticated,
     TResult Function(Unauthenticated value)? unauthenticated,
     TResult Function(Error value)? error,
-    TResult Function(ResetPasswordSuccess value)? resetPasswordSuccess,
-    TResult Function(VerifyEmailSuccess value)? verifyEmailSuccess,
+    TResult Function(ResetPasswordEmailSent value)? resetPasswordEmailSent,
+    TResult Function(EmailVerified value)? emailVerified,
     required TResult orElse(),
   }) {
     if (authenticated != null) {
@@ -2110,8 +2114,8 @@ class _$UnauthenticatedImpl implements Unauthenticated {
     required TResult Function(User user) authenticated,
     required TResult Function() unauthenticated,
     required TResult Function(String message) error,
-    required TResult Function() resetPasswordSuccess,
-    required TResult Function() verifyEmailSuccess,
+    required TResult Function() resetPasswordEmailSent,
+    required TResult Function() emailVerified,
   }) {
     return unauthenticated();
   }
@@ -2124,8 +2128,8 @@ class _$UnauthenticatedImpl implements Unauthenticated {
     TResult? Function(User user)? authenticated,
     TResult? Function()? unauthenticated,
     TResult? Function(String message)? error,
-    TResult? Function()? resetPasswordSuccess,
-    TResult? Function()? verifyEmailSuccess,
+    TResult? Function()? resetPasswordEmailSent,
+    TResult? Function()? emailVerified,
   }) {
     return unauthenticated?.call();
   }
@@ -2138,8 +2142,8 @@ class _$UnauthenticatedImpl implements Unauthenticated {
     TResult Function(User user)? authenticated,
     TResult Function()? unauthenticated,
     TResult Function(String message)? error,
-    TResult Function()? resetPasswordSuccess,
-    TResult Function()? verifyEmailSuccess,
+    TResult Function()? resetPasswordEmailSent,
+    TResult Function()? emailVerified,
     required TResult orElse(),
   }) {
     if (unauthenticated != null) {
@@ -2156,8 +2160,9 @@ class _$UnauthenticatedImpl implements Unauthenticated {
     required TResult Function(Authenticated value) authenticated,
     required TResult Function(Unauthenticated value) unauthenticated,
     required TResult Function(Error value) error,
-    required TResult Function(ResetPasswordSuccess value) resetPasswordSuccess,
-    required TResult Function(VerifyEmailSuccess value) verifyEmailSuccess,
+    required TResult Function(ResetPasswordEmailSent value)
+        resetPasswordEmailSent,
+    required TResult Function(EmailVerified value) emailVerified,
   }) {
     return unauthenticated(this);
   }
@@ -2170,8 +2175,8 @@ class _$UnauthenticatedImpl implements Unauthenticated {
     TResult? Function(Authenticated value)? authenticated,
     TResult? Function(Unauthenticated value)? unauthenticated,
     TResult? Function(Error value)? error,
-    TResult? Function(ResetPasswordSuccess value)? resetPasswordSuccess,
-    TResult? Function(VerifyEmailSuccess value)? verifyEmailSuccess,
+    TResult? Function(ResetPasswordEmailSent value)? resetPasswordEmailSent,
+    TResult? Function(EmailVerified value)? emailVerified,
   }) {
     return unauthenticated?.call(this);
   }
@@ -2184,8 +2189,8 @@ class _$UnauthenticatedImpl implements Unauthenticated {
     TResult Function(Authenticated value)? authenticated,
     TResult Function(Unauthenticated value)? unauthenticated,
     TResult Function(Error value)? error,
-    TResult Function(ResetPasswordSuccess value)? resetPasswordSuccess,
-    TResult Function(VerifyEmailSuccess value)? verifyEmailSuccess,
+    TResult Function(ResetPasswordEmailSent value)? resetPasswordEmailSent,
+    TResult Function(EmailVerified value)? emailVerified,
     required TResult orElse(),
   }) {
     if (unauthenticated != null) {
@@ -2272,8 +2277,8 @@ class _$ErrorImpl implements Error {
     required TResult Function(User user) authenticated,
     required TResult Function() unauthenticated,
     required TResult Function(String message) error,
-    required TResult Function() resetPasswordSuccess,
-    required TResult Function() verifyEmailSuccess,
+    required TResult Function() resetPasswordEmailSent,
+    required TResult Function() emailVerified,
   }) {
     return error(message);
   }
@@ -2286,8 +2291,8 @@ class _$ErrorImpl implements Error {
     TResult? Function(User user)? authenticated,
     TResult? Function()? unauthenticated,
     TResult? Function(String message)? error,
-    TResult? Function()? resetPasswordSuccess,
-    TResult? Function()? verifyEmailSuccess,
+    TResult? Function()? resetPasswordEmailSent,
+    TResult? Function()? emailVerified,
   }) {
     return error?.call(message);
   }
@@ -2300,8 +2305,8 @@ class _$ErrorImpl implements Error {
     TResult Function(User user)? authenticated,
     TResult Function()? unauthenticated,
     TResult Function(String message)? error,
-    TResult Function()? resetPasswordSuccess,
-    TResult Function()? verifyEmailSuccess,
+    TResult Function()? resetPasswordEmailSent,
+    TResult Function()? emailVerified,
     required TResult orElse(),
   }) {
     if (error != null) {
@@ -2318,8 +2323,9 @@ class _$ErrorImpl implements Error {
     required TResult Function(Authenticated value) authenticated,
     required TResult Function(Unauthenticated value) unauthenticated,
     required TResult Function(Error value) error,
-    required TResult Function(ResetPasswordSuccess value) resetPasswordSuccess,
-    required TResult Function(VerifyEmailSuccess value) verifyEmailSuccess,
+    required TResult Function(ResetPasswordEmailSent value)
+        resetPasswordEmailSent,
+    required TResult Function(EmailVerified value) emailVerified,
   }) {
     return error(this);
   }
@@ -2332,8 +2338,8 @@ class _$ErrorImpl implements Error {
     TResult? Function(Authenticated value)? authenticated,
     TResult? Function(Unauthenticated value)? unauthenticated,
     TResult? Function(Error value)? error,
-    TResult? Function(ResetPasswordSuccess value)? resetPasswordSuccess,
-    TResult? Function(VerifyEmailSuccess value)? verifyEmailSuccess,
+    TResult? Function(ResetPasswordEmailSent value)? resetPasswordEmailSent,
+    TResult? Function(EmailVerified value)? emailVerified,
   }) {
     return error?.call(this);
   }
@@ -2346,8 +2352,8 @@ class _$ErrorImpl implements Error {
     TResult Function(Authenticated value)? authenticated,
     TResult Function(Unauthenticated value)? unauthenticated,
     TResult Function(Error value)? error,
-    TResult Function(ResetPasswordSuccess value)? resetPasswordSuccess,
-    TResult Function(VerifyEmailSuccess value)? verifyEmailSuccess,
+    TResult Function(ResetPasswordEmailSent value)? resetPasswordEmailSent,
+    TResult Function(EmailVerified value)? emailVerified,
     required TResult orElse(),
   }) {
     if (error != null) {
@@ -2370,18 +2376,20 @@ abstract class Error implements AuthState {
 }
 
 /// @nodoc
-abstract class _$$ResetPasswordSuccessImplCopyWith<$Res> {
-  factory _$$ResetPasswordSuccessImplCopyWith(_$ResetPasswordSuccessImpl value,
-          $Res Function(_$ResetPasswordSuccessImpl) then) =
-      __$$ResetPasswordSuccessImplCopyWithImpl<$Res>;
+abstract class _$$ResetPasswordEmailSentImplCopyWith<$Res> {
+  factory _$$ResetPasswordEmailSentImplCopyWith(
+          _$ResetPasswordEmailSentImpl value,
+          $Res Function(_$ResetPasswordEmailSentImpl) then) =
+      __$$ResetPasswordEmailSentImplCopyWithImpl<$Res>;
 }
 
 /// @nodoc
-class __$$ResetPasswordSuccessImplCopyWithImpl<$Res>
-    extends _$AuthStateCopyWithImpl<$Res, _$ResetPasswordSuccessImpl>
-    implements _$$ResetPasswordSuccessImplCopyWith<$Res> {
-  __$$ResetPasswordSuccessImplCopyWithImpl(_$ResetPasswordSuccessImpl _value,
-      $Res Function(_$ResetPasswordSuccessImpl) _then)
+class __$$ResetPasswordEmailSentImplCopyWithImpl<$Res>
+    extends _$AuthStateCopyWithImpl<$Res, _$ResetPasswordEmailSentImpl>
+    implements _$$ResetPasswordEmailSentImplCopyWith<$Res> {
+  __$$ResetPasswordEmailSentImplCopyWithImpl(
+      _$ResetPasswordEmailSentImpl _value,
+      $Res Function(_$ResetPasswordEmailSentImpl) _then)
       : super(_value, _then);
 
   /// Create a copy of AuthState
@@ -2390,19 +2398,19 @@ class __$$ResetPasswordSuccessImplCopyWithImpl<$Res>
 
 /// @nodoc
 
-class _$ResetPasswordSuccessImpl implements ResetPasswordSuccess {
-  const _$ResetPasswordSuccessImpl();
+class _$ResetPasswordEmailSentImpl implements ResetPasswordEmailSent {
+  const _$ResetPasswordEmailSentImpl();
 
   @override
   String toString() {
-    return 'AuthState.resetPasswordSuccess()';
+    return 'AuthState.resetPasswordEmailSent()';
   }
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$ResetPasswordSuccessImpl);
+            other is _$ResetPasswordEmailSentImpl);
   }
 
   @override
@@ -2416,10 +2424,10 @@ class _$ResetPasswordSuccessImpl implements ResetPasswordSuccess {
     required TResult Function(User user) authenticated,
     required TResult Function() unauthenticated,
     required TResult Function(String message) error,
-    required TResult Function() resetPasswordSuccess,
-    required TResult Function() verifyEmailSuccess,
+    required TResult Function() resetPasswordEmailSent,
+    required TResult Function() emailVerified,
   }) {
-    return resetPasswordSuccess();
+    return resetPasswordEmailSent();
   }
 
   @override
@@ -2430,10 +2438,10 @@ class _$ResetPasswordSuccessImpl implements ResetPasswordSuccess {
     TResult? Function(User user)? authenticated,
     TResult? Function()? unauthenticated,
     TResult? Function(String message)? error,
-    TResult? Function()? resetPasswordSuccess,
-    TResult? Function()? verifyEmailSuccess,
+    TResult? Function()? resetPasswordEmailSent,
+    TResult? Function()? emailVerified,
   }) {
-    return resetPasswordSuccess?.call();
+    return resetPasswordEmailSent?.call();
   }
 
   @override
@@ -2444,12 +2452,12 @@ class _$ResetPasswordSuccessImpl implements ResetPasswordSuccess {
     TResult Function(User user)? authenticated,
     TResult Function()? unauthenticated,
     TResult Function(String message)? error,
-    TResult Function()? resetPasswordSuccess,
-    TResult Function()? verifyEmailSuccess,
+    TResult Function()? resetPasswordEmailSent,
+    TResult Function()? emailVerified,
     required TResult orElse(),
   }) {
-    if (resetPasswordSuccess != null) {
-      return resetPasswordSuccess();
+    if (resetPasswordEmailSent != null) {
+      return resetPasswordEmailSent();
     }
     return orElse();
   }
@@ -2462,10 +2470,11 @@ class _$ResetPasswordSuccessImpl implements ResetPasswordSuccess {
     required TResult Function(Authenticated value) authenticated,
     required TResult Function(Unauthenticated value) unauthenticated,
     required TResult Function(Error value) error,
-    required TResult Function(ResetPasswordSuccess value) resetPasswordSuccess,
-    required TResult Function(VerifyEmailSuccess value) verifyEmailSuccess,
+    required TResult Function(ResetPasswordEmailSent value)
+        resetPasswordEmailSent,
+    required TResult Function(EmailVerified value) emailVerified,
   }) {
-    return resetPasswordSuccess(this);
+    return resetPasswordEmailSent(this);
   }
 
   @override
@@ -2476,10 +2485,10 @@ class _$ResetPasswordSuccessImpl implements ResetPasswordSuccess {
     TResult? Function(Authenticated value)? authenticated,
     TResult? Function(Unauthenticated value)? unauthenticated,
     TResult? Function(Error value)? error,
-    TResult? Function(ResetPasswordSuccess value)? resetPasswordSuccess,
-    TResult? Function(VerifyEmailSuccess value)? verifyEmailSuccess,
+    TResult? Function(ResetPasswordEmailSent value)? resetPasswordEmailSent,
+    TResult? Function(EmailVerified value)? emailVerified,
   }) {
-    return resetPasswordSuccess?.call(this);
+    return resetPasswordEmailSent?.call(this);
   }
 
   @override
@@ -2490,34 +2499,34 @@ class _$ResetPasswordSuccessImpl implements ResetPasswordSuccess {
     TResult Function(Authenticated value)? authenticated,
     TResult Function(Unauthenticated value)? unauthenticated,
     TResult Function(Error value)? error,
-    TResult Function(ResetPasswordSuccess value)? resetPasswordSuccess,
-    TResult Function(VerifyEmailSuccess value)? verifyEmailSuccess,
+    TResult Function(ResetPasswordEmailSent value)? resetPasswordEmailSent,
+    TResult Function(EmailVerified value)? emailVerified,
     required TResult orElse(),
   }) {
-    if (resetPasswordSuccess != null) {
-      return resetPasswordSuccess(this);
+    if (resetPasswordEmailSent != null) {
+      return resetPasswordEmailSent(this);
     }
     return orElse();
   }
 }
 
-abstract class ResetPasswordSuccess implements AuthState {
-  const factory ResetPasswordSuccess() = _$ResetPasswordSuccessImpl;
+abstract class ResetPasswordEmailSent implements AuthState {
+  const factory ResetPasswordEmailSent() = _$ResetPasswordEmailSentImpl;
 }
 
 /// @nodoc
-abstract class _$$VerifyEmailSuccessImplCopyWith<$Res> {
-  factory _$$VerifyEmailSuccessImplCopyWith(_$VerifyEmailSuccessImpl value,
-          $Res Function(_$VerifyEmailSuccessImpl) then) =
-      __$$VerifyEmailSuccessImplCopyWithImpl<$Res>;
+abstract class _$$EmailVerifiedImplCopyWith<$Res> {
+  factory _$$EmailVerifiedImplCopyWith(
+          _$EmailVerifiedImpl value, $Res Function(_$EmailVerifiedImpl) then) =
+      __$$EmailVerifiedImplCopyWithImpl<$Res>;
 }
 
 /// @nodoc
-class __$$VerifyEmailSuccessImplCopyWithImpl<$Res>
-    extends _$AuthStateCopyWithImpl<$Res, _$VerifyEmailSuccessImpl>
-    implements _$$VerifyEmailSuccessImplCopyWith<$Res> {
-  __$$VerifyEmailSuccessImplCopyWithImpl(_$VerifyEmailSuccessImpl _value,
-      $Res Function(_$VerifyEmailSuccessImpl) _then)
+class __$$EmailVerifiedImplCopyWithImpl<$Res>
+    extends _$AuthStateCopyWithImpl<$Res, _$EmailVerifiedImpl>
+    implements _$$EmailVerifiedImplCopyWith<$Res> {
+  __$$EmailVerifiedImplCopyWithImpl(
+      _$EmailVerifiedImpl _value, $Res Function(_$EmailVerifiedImpl) _then)
       : super(_value, _then);
 
   /// Create a copy of AuthState
@@ -2526,18 +2535,18 @@ class __$$VerifyEmailSuccessImplCopyWithImpl<$Res>
 
 /// @nodoc
 
-class _$VerifyEmailSuccessImpl implements VerifyEmailSuccess {
-  const _$VerifyEmailSuccessImpl();
+class _$EmailVerifiedImpl implements EmailVerified {
+  const _$EmailVerifiedImpl();
 
   @override
   String toString() {
-    return 'AuthState.verifyEmailSuccess()';
+    return 'AuthState.emailVerified()';
   }
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
-        (other.runtimeType == runtimeType && other is _$VerifyEmailSuccessImpl);
+        (other.runtimeType == runtimeType && other is _$EmailVerifiedImpl);
   }
 
   @override
@@ -2551,10 +2560,10 @@ class _$VerifyEmailSuccessImpl implements VerifyEmailSuccess {
     required TResult Function(User user) authenticated,
     required TResult Function() unauthenticated,
     required TResult Function(String message) error,
-    required TResult Function() resetPasswordSuccess,
-    required TResult Function() verifyEmailSuccess,
+    required TResult Function() resetPasswordEmailSent,
+    required TResult Function() emailVerified,
   }) {
-    return verifyEmailSuccess();
+    return emailVerified();
   }
 
   @override
@@ -2565,10 +2574,10 @@ class _$VerifyEmailSuccessImpl implements VerifyEmailSuccess {
     TResult? Function(User user)? authenticated,
     TResult? Function()? unauthenticated,
     TResult? Function(String message)? error,
-    TResult? Function()? resetPasswordSuccess,
-    TResult? Function()? verifyEmailSuccess,
+    TResult? Function()? resetPasswordEmailSent,
+    TResult? Function()? emailVerified,
   }) {
-    return verifyEmailSuccess?.call();
+    return emailVerified?.call();
   }
 
   @override
@@ -2579,12 +2588,12 @@ class _$VerifyEmailSuccessImpl implements VerifyEmailSuccess {
     TResult Function(User user)? authenticated,
     TResult Function()? unauthenticated,
     TResult Function(String message)? error,
-    TResult Function()? resetPasswordSuccess,
-    TResult Function()? verifyEmailSuccess,
+    TResult Function()? resetPasswordEmailSent,
+    TResult Function()? emailVerified,
     required TResult orElse(),
   }) {
-    if (verifyEmailSuccess != null) {
-      return verifyEmailSuccess();
+    if (emailVerified != null) {
+      return emailVerified();
     }
     return orElse();
   }
@@ -2597,10 +2606,11 @@ class _$VerifyEmailSuccessImpl implements VerifyEmailSuccess {
     required TResult Function(Authenticated value) authenticated,
     required TResult Function(Unauthenticated value) unauthenticated,
     required TResult Function(Error value) error,
-    required TResult Function(ResetPasswordSuccess value) resetPasswordSuccess,
-    required TResult Function(VerifyEmailSuccess value) verifyEmailSuccess,
+    required TResult Function(ResetPasswordEmailSent value)
+        resetPasswordEmailSent,
+    required TResult Function(EmailVerified value) emailVerified,
   }) {
-    return verifyEmailSuccess(this);
+    return emailVerified(this);
   }
 
   @override
@@ -2611,10 +2621,10 @@ class _$VerifyEmailSuccessImpl implements VerifyEmailSuccess {
     TResult? Function(Authenticated value)? authenticated,
     TResult? Function(Unauthenticated value)? unauthenticated,
     TResult? Function(Error value)? error,
-    TResult? Function(ResetPasswordSuccess value)? resetPasswordSuccess,
-    TResult? Function(VerifyEmailSuccess value)? verifyEmailSuccess,
+    TResult? Function(ResetPasswordEmailSent value)? resetPasswordEmailSent,
+    TResult? Function(EmailVerified value)? emailVerified,
   }) {
-    return verifyEmailSuccess?.call(this);
+    return emailVerified?.call(this);
   }
 
   @override
@@ -2625,17 +2635,17 @@ class _$VerifyEmailSuccessImpl implements VerifyEmailSuccess {
     TResult Function(Authenticated value)? authenticated,
     TResult Function(Unauthenticated value)? unauthenticated,
     TResult Function(Error value)? error,
-    TResult Function(ResetPasswordSuccess value)? resetPasswordSuccess,
-    TResult Function(VerifyEmailSuccess value)? verifyEmailSuccess,
+    TResult Function(ResetPasswordEmailSent value)? resetPasswordEmailSent,
+    TResult Function(EmailVerified value)? emailVerified,
     required TResult orElse(),
   }) {
-    if (verifyEmailSuccess != null) {
-      return verifyEmailSuccess(this);
+    if (emailVerified != null) {
+      return emailVerified(this);
     }
     return orElse();
   }
 }
 
-abstract class VerifyEmailSuccess implements AuthState {
-  const factory VerifyEmailSuccess() = _$VerifyEmailSuccessImpl;
+abstract class EmailVerified implements AuthState {
+  const factory EmailVerified() = _$EmailVerifiedImpl;
 }
