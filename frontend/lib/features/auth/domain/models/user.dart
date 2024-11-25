@@ -9,8 +9,10 @@ class User with _$User {
     required String id,
     required String email,
     required String username,
-    String? profilePicture,
-    String? bio,
+    @Default('') String firstName,
+    @Default('') String lastName,
+    @Default('') String bio,
+    @Default('/default-profile.png') String profileImage,
     @Default(false) bool isOnline,
     DateTime? lastActive,
     @Default([]) List<String> friends,
@@ -18,7 +20,48 @@ class User with _$User {
     @Default({}) Map<String, dynamic> preferences,
   }) = _User;
 
-  factory User.fromJson(Map<String, dynamic> json) => _$UserFromJson(json);
+  const User._();
+
+  String get name => '$firstName $lastName'.trim().isEmpty ? username : '$firstName $lastName'.trim();
+
+  static User fromJson(Map<String, dynamic> json) {
+    final profile = json['profile'] as Map<String, dynamic>?;
+    return User(
+      id: json['id']?.toString() ?? '',
+      email: json['email']?.toString() ?? '',
+      username: json['username']?.toString() ?? '',
+      firstName: profile?['firstName']?.toString() ?? '',
+      lastName: profile?['lastName']?.toString() ?? '',
+      bio: profile?['bio']?.toString() ?? '',
+      profileImage: profile?['profileImage']?.toString() ?? '/default-profile.png',
+      isOnline: json['isOnline'] as bool? ?? false,
+      lastActive: json['lastActive'] == null 
+          ? null 
+          : DateTime.tryParse(json['lastActive'].toString()),
+      friends: (json['friends'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ?? [],
+      pendingFriends: (json['pendingFriends'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ?? [],
+      preferences: profile?['preferences'] as Map<String, dynamic>? ?? {},
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'email': email,
+    'username': username,
+    'firstName': firstName,
+    'lastName': lastName,
+    'bio': bio,
+    'profileImage': profileImage,
+    'isOnline': isOnline,
+    'lastActive': lastActive?.toIso8601String(),
+    'friends': friends,
+    'pendingFriends': pendingFriends,
+    'preferences': preferences,
+  };
 }
 
 @freezed

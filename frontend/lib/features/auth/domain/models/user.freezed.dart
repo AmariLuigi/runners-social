@@ -14,25 +14,20 @@ T _$identity<T>(T value) => value;
 final _privateConstructorUsedError = UnsupportedError(
     'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
 
-User _$UserFromJson(Map<String, dynamic> json) {
-  return _User.fromJson(json);
-}
-
 /// @nodoc
 mixin _$User {
   String get id => throw _privateConstructorUsedError;
   String get email => throw _privateConstructorUsedError;
   String get username => throw _privateConstructorUsedError;
-  String? get profilePicture => throw _privateConstructorUsedError;
-  String? get bio => throw _privateConstructorUsedError;
+  String get firstName => throw _privateConstructorUsedError;
+  String get lastName => throw _privateConstructorUsedError;
+  String get bio => throw _privateConstructorUsedError;
+  String get profileImage => throw _privateConstructorUsedError;
   bool get isOnline => throw _privateConstructorUsedError;
   DateTime? get lastActive => throw _privateConstructorUsedError;
   List<String> get friends => throw _privateConstructorUsedError;
   List<String> get pendingFriends => throw _privateConstructorUsedError;
   Map<String, dynamic> get preferences => throw _privateConstructorUsedError;
-
-  /// Serializes this User to a JSON map.
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
 
   /// Create a copy of User
   /// with the given fields replaced by the non-null parameter values.
@@ -49,8 +44,10 @@ abstract class $UserCopyWith<$Res> {
       {String id,
       String email,
       String username,
-      String? profilePicture,
-      String? bio,
+      String firstName,
+      String lastName,
+      String bio,
+      String profileImage,
       bool isOnline,
       DateTime? lastActive,
       List<String> friends,
@@ -76,8 +73,10 @@ class _$UserCopyWithImpl<$Res, $Val extends User>
     Object? id = null,
     Object? email = null,
     Object? username = null,
-    Object? profilePicture = freezed,
-    Object? bio = freezed,
+    Object? firstName = null,
+    Object? lastName = null,
+    Object? bio = null,
+    Object? profileImage = null,
     Object? isOnline = null,
     Object? lastActive = freezed,
     Object? friends = null,
@@ -97,14 +96,22 @@ class _$UserCopyWithImpl<$Res, $Val extends User>
           ? _value.username
           : username // ignore: cast_nullable_to_non_nullable
               as String,
-      profilePicture: freezed == profilePicture
-          ? _value.profilePicture
-          : profilePicture // ignore: cast_nullable_to_non_nullable
-              as String?,
-      bio: freezed == bio
+      firstName: null == firstName
+          ? _value.firstName
+          : firstName // ignore: cast_nullable_to_non_nullable
+              as String,
+      lastName: null == lastName
+          ? _value.lastName
+          : lastName // ignore: cast_nullable_to_non_nullable
+              as String,
+      bio: null == bio
           ? _value.bio
           : bio // ignore: cast_nullable_to_non_nullable
-              as String?,
+              as String,
+      profileImage: null == profileImage
+          ? _value.profileImage
+          : profileImage // ignore: cast_nullable_to_non_nullable
+              as String,
       isOnline: null == isOnline
           ? _value.isOnline
           : isOnline // ignore: cast_nullable_to_non_nullable
@@ -140,8 +147,10 @@ abstract class _$$UserImplCopyWith<$Res> implements $UserCopyWith<$Res> {
       {String id,
       String email,
       String username,
-      String? profilePicture,
-      String? bio,
+      String firstName,
+      String lastName,
+      String bio,
+      String profileImage,
       bool isOnline,
       DateTime? lastActive,
       List<String> friends,
@@ -164,8 +173,10 @@ class __$$UserImplCopyWithImpl<$Res>
     Object? id = null,
     Object? email = null,
     Object? username = null,
-    Object? profilePicture = freezed,
-    Object? bio = freezed,
+    Object? firstName = null,
+    Object? lastName = null,
+    Object? bio = null,
+    Object? profileImage = null,
     Object? isOnline = null,
     Object? lastActive = freezed,
     Object? friends = null,
@@ -185,14 +196,22 @@ class __$$UserImplCopyWithImpl<$Res>
           ? _value.username
           : username // ignore: cast_nullable_to_non_nullable
               as String,
-      profilePicture: freezed == profilePicture
-          ? _value.profilePicture
-          : profilePicture // ignore: cast_nullable_to_non_nullable
-              as String?,
-      bio: freezed == bio
+      firstName: null == firstName
+          ? _value.firstName
+          : firstName // ignore: cast_nullable_to_non_nullable
+              as String,
+      lastName: null == lastName
+          ? _value.lastName
+          : lastName // ignore: cast_nullable_to_non_nullable
+              as String,
+      bio: null == bio
           ? _value.bio
           : bio // ignore: cast_nullable_to_non_nullable
-              as String?,
+              as String,
+      profileImage: null == profileImage
+          ? _value.profileImage
+          : profileImage // ignore: cast_nullable_to_non_nullable
+              as String,
       isOnline: null == isOnline
           ? _value.isOnline
           : isOnline // ignore: cast_nullable_to_non_nullable
@@ -218,14 +237,16 @@ class __$$UserImplCopyWithImpl<$Res>
 }
 
 /// @nodoc
-@JsonSerializable()
-class _$UserImpl implements _User {
+
+class _$UserImpl extends _User {
   const _$UserImpl(
       {required this.id,
       required this.email,
       required this.username,
-      this.profilePicture,
-      this.bio,
+      this.firstName = '',
+      this.lastName = '',
+      this.bio = '',
+      this.profileImage = '/default-profile.png',
       this.isOnline = false,
       this.lastActive,
       final List<String> friends = const [],
@@ -233,10 +254,8 @@ class _$UserImpl implements _User {
       final Map<String, dynamic> preferences = const {}})
       : _friends = friends,
         _pendingFriends = pendingFriends,
-        _preferences = preferences;
-
-  factory _$UserImpl.fromJson(Map<String, dynamic> json) =>
-      _$$UserImplFromJson(json);
+        _preferences = preferences,
+        super._();
 
   @override
   final String id;
@@ -245,9 +264,17 @@ class _$UserImpl implements _User {
   @override
   final String username;
   @override
-  final String? profilePicture;
+  @JsonKey()
+  final String firstName;
   @override
-  final String? bio;
+  @JsonKey()
+  final String lastName;
+  @override
+  @JsonKey()
+  final String bio;
+  @override
+  @JsonKey()
+  final String profileImage;
   @override
   @JsonKey()
   final bool isOnline;
@@ -282,7 +309,7 @@ class _$UserImpl implements _User {
 
   @override
   String toString() {
-    return 'User(id: $id, email: $email, username: $username, profilePicture: $profilePicture, bio: $bio, isOnline: $isOnline, lastActive: $lastActive, friends: $friends, pendingFriends: $pendingFriends, preferences: $preferences)';
+    return 'User(id: $id, email: $email, username: $username, firstName: $firstName, lastName: $lastName, bio: $bio, profileImage: $profileImage, isOnline: $isOnline, lastActive: $lastActive, friends: $friends, pendingFriends: $pendingFriends, preferences: $preferences)';
   }
 
   @override
@@ -294,9 +321,13 @@ class _$UserImpl implements _User {
             (identical(other.email, email) || other.email == email) &&
             (identical(other.username, username) ||
                 other.username == username) &&
-            (identical(other.profilePicture, profilePicture) ||
-                other.profilePicture == profilePicture) &&
+            (identical(other.firstName, firstName) ||
+                other.firstName == firstName) &&
+            (identical(other.lastName, lastName) ||
+                other.lastName == lastName) &&
             (identical(other.bio, bio) || other.bio == bio) &&
+            (identical(other.profileImage, profileImage) ||
+                other.profileImage == profileImage) &&
             (identical(other.isOnline, isOnline) ||
                 other.isOnline == isOnline) &&
             (identical(other.lastActive, lastActive) ||
@@ -308,15 +339,16 @@ class _$UserImpl implements _User {
                 .equals(other._preferences, _preferences));
   }
 
-  @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   int get hashCode => Object.hash(
       runtimeType,
       id,
       email,
       username,
-      profilePicture,
+      firstName,
+      lastName,
       bio,
+      profileImage,
       isOnline,
       lastActive,
       const DeepCollectionEquality().hash(_friends),
@@ -330,29 +362,23 @@ class _$UserImpl implements _User {
   @pragma('vm:prefer-inline')
   _$$UserImplCopyWith<_$UserImpl> get copyWith =>
       __$$UserImplCopyWithImpl<_$UserImpl>(this, _$identity);
-
-  @override
-  Map<String, dynamic> toJson() {
-    return _$$UserImplToJson(
-      this,
-    );
-  }
 }
 
-abstract class _User implements User {
+abstract class _User extends User {
   const factory _User(
       {required final String id,
       required final String email,
       required final String username,
-      final String? profilePicture,
-      final String? bio,
+      final String firstName,
+      final String lastName,
+      final String bio,
+      final String profileImage,
       final bool isOnline,
       final DateTime? lastActive,
       final List<String> friends,
       final List<String> pendingFriends,
       final Map<String, dynamic> preferences}) = _$UserImpl;
-
-  factory _User.fromJson(Map<String, dynamic> json) = _$UserImpl.fromJson;
+  const _User._() : super._();
 
   @override
   String get id;
@@ -361,9 +387,13 @@ abstract class _User implements User {
   @override
   String get username;
   @override
-  String? get profilePicture;
+  String get firstName;
   @override
-  String? get bio;
+  String get lastName;
+  @override
+  String get bio;
+  @override
+  String get profileImage;
   @override
   bool get isOnline;
   @override

@@ -3,7 +3,7 @@ const User = require('../models/user');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-development-secret';
 
-const auth = async (req, res, next) => {
+const authenticateToken = async (req, res, next) => {
   try {
     console.log('Auth headers:', req.headers);
     const token = req.header('Authorization')?.replace('Bearer ', '');
@@ -25,11 +25,14 @@ const auth = async (req, res, next) => {
     }
 
     req.token = token;
-    req.user = user;
+    req.user = decoded;  
     next();
   } catch (error) {
     console.error('Auth error:', error);
-    res.status(401).json({ error: 'Please authenticate.' });
+    res.status(401).json({ 
+      error: 'Authentication failed',
+      details: error.message
+    });
   }
 };
 
@@ -38,7 +41,7 @@ const generateToken = (userId) => {
 };
 
 module.exports = {
-  auth,
+  authenticateToken,
   generateToken,
   JWT_SECRET
 };
