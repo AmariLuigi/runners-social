@@ -1,339 +1,345 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:auto_route/auto_route.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:get_it/get_it.dart';
 import 'package:runners_social/core/services/socket_service.dart';
-import 'package:runners_social/core/services/user_service.dart';
-import 'package:runners_social/features/run/data/models/run_session.dart';
+import 'package:runners_social/features/run/data/models/location_model.dart';
+import 'package:runners_social/features/run/data/models/participant.dart';
 import 'package:runners_social/features/run/presentation/widgets/run_completion_modal.dart';
-import '../../data/models/location_model.dart';
-import '../providers/run_provider.dart';
 
 class ActiveRunScreen extends ConsumerStatefulWidget {
   final String runId;
 
   const ActiveRunScreen({
-    super.key,
+    Key? key,
     required this.runId,
-  });
+  }) : super(key: key);
 
   @override
   ConsumerState<ActiveRunScreen> createState() => _ActiveRunScreenState();
 }
 
 class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
+  late final SocketService _socketService;
   GoogleMapController? _mapController;
-  final Set<Marker> _markers = {};
-  final Set<Circle> _circles = {};
-  final Set<Polyline> _polylines = {};
-  final SocketService _socketService = SocketService();
-  final UserService _userService = GetIt.I<UserService>();
   StreamSubscription<Position>? _locationSubscription;
-  List<LatLng> _routePoints = [];
-  bool _isRunning = false;
+  Set<Marker> _markers = {};
+  Set<Polyline> _polylines = {};
+  List<LatLng> _routeCoordinates = [];
   Timer? _timer;
   Duration _duration = Duration.zero;
   double _distance = 0;
-  double _currentPace = 0;
-  RunSession? _currentRun;
-  Position? _currentPosition;
-  bool _isMapInitialized = false;
   String? _mapError;
+  bool _disposed = false;
+  bool _isRunning = false;
+  DateTime? _startTime;
+  final List<Function> _socketListeners = [];
+  Map<String, Participant> _participants = {};
+  bool _isInitialized = false;
 
   @override
   void initState() {
     super.initState();
-    _loadRun();
-    _setupSocketListeners();
+    _socketService = GetIt.I<SocketService>();
+    _initialize();
   }
 
-  Future<void> _loadRun() async {
+  Future<void> _initialize() async {
+    if (!mounted) return;
+
     try {
-      final run = await ref.read(runRepositoryProvider).getRun(widget.runId);
+      await _socketService.ensureConnected();
+      
+      if (!mounted) return;
+      
       setState(() {
-        _currentRun = run;
+        _isInitialized = true;
       });
-      _setupMap(run);
-      _setupLocationTracking();
-      _socketService.joinRun(widget.runId);
+
+      _setupSocketListeners();
+      await _socketService.joinRun(widget.runId);
+      await _startLocationTracking();
+    } catch (e) {
+      if (!mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error initializing: $e')),
+      );
+    }
+  }
+
+  void _setupSocketListeners() {
+    if (!_socketService.isConnected) return;
+
+    void addListener(String event, Function(dynamic) callback) {
+      _socketService.socket.on(event, callback);
+      _socketListeners.add(() {
+        _socketService.socket.off(event, callback);
+      });
+    }
+
+    addListener('runStarted', (data) {
+      if (!mounted || _disposed) return;
+      setState(() {
+        _isRunning = true;
+        _startTime = DateTime.now();
+      });
+    });
+
+    addListener('runEnded', (data) {
+      if (!mounted || _disposed) return;
+      setState(() {
+        _isRunning = false;
+      });
+      _handleRunEnd();
+    });
+
+    addListener('participantJoined', (data) {
+      if (data is! Map<String, dynamic>) return;
+      if (data['participant'] != null) {
+        final participant = Participant.fromJson(data['participant'] as Map<String, dynamic>);
+        setState(() {
+          _participants[participant.id] = participant;
+          _updateParticipantMarker(participant);
+        });
+      }
+    });
+
+    addListener('participantLeft', (data) {
+      if (data is! Map<String, dynamic>) return;
+      final participantId = data['participantId'];
+      if (participantId != null) {
+        setState(() {
+          _participants.remove(participantId);
+          _markers.removeWhere((marker) => marker.markerId.value == participantId);
+        });
+      }
+    });
+
+    addListener('locationUpdate', (data) {
+      if (data is Map<String, dynamic>) {
+        _handleParticipantLocationUpdate(data);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    for (final removeListener in _socketListeners) {
+      removeListener();
+    }
+    _locationSubscription?.cancel();
+    _timer?.cancel();
+    _mapController?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _startLocationTracking() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        throw Exception('Location services are disabled');
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          throw Exception('Location permissions are denied');
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        throw Exception('Location permissions are permanently denied');
+      }
+
+      _locationSubscription = Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 10,
+        ),
+      ).listen(_handleLocationUpdate);
+
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load run: $e')),
+          SnackBar(content: Text('Error starting location tracking: ${e.toString()}')),
         );
       }
     }
   }
 
-  Future<void> _setupSocketListeners() async {
-    await _socketService.connect();
+  void _handleLocationUpdate(Position position) {
+    if (!mounted || !_isRunning) return;
 
-    _socketService.onRunStarted((data) {
-      setState(() {
-        _isRunning = true;
-        _timer = Timer.periodic(
-          const Duration(seconds: 1),
-          (timer) {
-            setState(() {
-              _duration += const Duration(seconds: 1);
-            });
-          },
-        );
-      });
-    });
+    final location = LocationModel(
+      coordinates: [position.longitude, position.latitude],
+      altitude: position.altitude,
+      speed: position.speed,
+      timestamp: DateTime.now(),
+    );
 
-    _socketService.onLocationUpdated((data) {
-      if (!mounted) return;
-      final participantId = data['participantId'];
-      final location = data['location'];
-      final position = LatLng(location['latitude'], location['longitude']);
-      
-      setState(() {
-        // Update participant marker
-        _markers.removeWhere(
-          (marker) => marker.markerId.value == 'participant_$participantId',
-        );
-        if (_currentRun != null) {
-          final participant = _currentRun!.participants
-              .firstWhere((p) => p.id == participantId);
-          _updateParticipantMarkers();
-        }
-      });
-    });
+    _socketService.emitLocationUpdate(
+      runId: widget.runId,
+      location: location,
+    );
 
-    _socketService.onRunEnded((data) {
-      if (!mounted) return;
-      _endRun();
-    });
-
-    _socketService.onParticipantJoined((data) {
-      if (!mounted) return;
-      final participant = Participant.fromJson(data['participant']);
-      setState(() {
-        _currentRun?.participants.add(participant);
-        _updateParticipantMarkers();
-      });
-    });
-
-    _socketService.onParticipantLeft((data) {
-      if (!mounted) return;
-      final participantId = data['participantId'];
-      setState(() {
-        _currentRun?.participants
-            .removeWhere((p) => p.id == participantId);
-        _markers.removeWhere(
-          (marker) => marker.markerId.value == 'participant_$participantId',
-        );
-      });
+    setState(() {
+      _routeCoordinates.add(
+        LatLng(position.latitude, position.longitude),
+      );
+      _updateRouteAndStats();
     });
   }
 
-  void _setupMap(RunSession run) {
-    if (run.checkpoints.isEmpty) return;
+  void _updateRouteAndStats() {
+    if (_routeCoordinates.isEmpty) return;
 
-    try {
-      // Add checkpoint markers and circles
-      for (final checkpoint in run.checkpoints) {
-        final position = LatLng(
-          checkpoint.location.latitude,
-          checkpoint.location.longitude,
-        );
-
-        _markers.add(
-          Marker(
-            markerId: MarkerId('checkpoint_${checkpoint.id}'),
-            position: position,
-            icon: BitmapDescriptor.defaultMarkerWithHue(
-              BitmapDescriptor.hueViolet,
-            ),
-            infoWindow: InfoWindow(
-              title: checkpoint.name,
-              snippet: checkpoint.description,
-            ),
-          ),
-        );
-
-        _circles.add(
-          Circle(
-            circleId: CircleId('checkpoint_${checkpoint.id}_radius'),
-            center: position,
-            radius: checkpoint.radius,
-            fillColor: Colors.blue.withOpacity(0.2),
-            strokeColor: Colors.blue,
-            strokeWidth: 1,
-          ),
-        );
-      }
-
-      setState(() {});
-    } catch (e) {
-      setState(() {
-        _mapError = 'Error setting up map: $e';
-      });
-    }
-  }
-
-  void _updateParticipantMarkers() {
-    if (_currentRun == null) return;
-
-    for (final participant in _currentRun!.participants) {
-      final markerId = MarkerId('participant_${participant.user.id}');
-      final participantMetrics = _currentRun!.metrics.firstWhere(
-        (m) => m.userId == participant.user.id,
-        orElse: () => RunMetrics(
-          userId: participant.user.id,
-          distance: 0,
+    setState(() {
+      _polylines.clear();
+      _polylines.add(
+        Polyline(
+          polylineId: const PolylineId('route'),
+          points: _routeCoordinates,
+          color: Colors.blue,
+          width: 5,
         ),
       );
 
-      if (participantMetrics.location != null) {
-        _markers.add(
-          Marker(
-            markerId: markerId,
-            position: LatLng(
-              participantMetrics.location!.latitude,
-              participantMetrics.location!.longitude,
-            ),
-            infoWindow: InfoWindow(
-              title: participant.user.username,
-              snippet: 'Distance: ${(participantMetrics.distance / 1000).toStringAsFixed(2)}km',
-            ),
-            icon: BitmapDescriptor.defaultMarkerWithHue(
-              participant.role == 'host' ? BitmapDescriptor.hueBlue : BitmapDescriptor.hueRed,
-            ),
-          ),
+      if (_mapController != null) {
+        _mapController!.animateCamera(
+          CameraUpdate.newLatLng(_routeCoordinates.last),
         );
       }
-    }
+    });
   }
 
-  Future<void> _setupLocationTracking() async {
-    if (!await _checkLocationPermission()) return;
-
-    try {
-      final position = await Geolocator.getCurrentPosition();
-      setState(() {
-        _currentPosition = position;
-      });
-
-      _locationSubscription = Geolocator.getPositionStream().listen((Position position) {
-        final latLng = LatLng(position.latitude, position.longitude);
-        
-        if (_mapController != null && _isMapInitialized) {
-          _mapController!.animateCamera(
-            CameraUpdate.newLatLng(latLng),
-          );
-        }
-
-        _handleLocationUpdate(position);
-      });
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to get location: $e')),
-        );
-      }
-    }
-  }
-
-  Future<bool> _checkLocationPermission() async {
-    LocationPermission permission = await Geolocator.checkPermission();
-    
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        return false;
-      }
-    }
-    
-    if (permission == LocationPermission.deniedForever) {
-      return false;
-    }
-
-    return true;
-  }
-
-  void _handleLocationUpdate(Position position) async {
-    if (widget.runId == null) return;
-
-    final location = LocationModel.fromPosition(
-      position.longitude,
-      position.latitude,
-      altitude: position.altitude,
-      speed: position.speed,
-    );
-
-    try {
-      await _socketService.emitLocationUpdate(
-        widget.runId!,
-        location,
-        isActive: _isRunning,
+  double _calculateTotalDistance() {
+    double totalDistance = 0;
+    for (int i = 0; i < _routeCoordinates.length - 1; i++) {
+      totalDistance += _calculateDistance(
+        _routeCoordinates[i],
+        _routeCoordinates[i + 1],
       );
-    } catch (e) {
-      print('Error updating location: $e');
-      // Consider showing a snackbar or other user feedback
     }
+    return totalDistance;
   }
 
-  void _startRun() {
-    _socketService.startRun(widget.runId);
+  double _calculateDistance(LatLng start, LatLng end) {
+    const int earthRadius = 6371000; // Earth's radius in meters
+    
+    final lat1 = start.latitude * pi / 180;
+    final lat2 = end.latitude * pi / 180;
+    final dLat = (end.latitude - start.latitude) * pi / 180;
+    final dLon = (end.longitude - start.longitude) * pi / 180;
+
+    final a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(lat1) * cos(lat2) * sin(dLon / 2) * sin(dLon / 2);
+    final c = 2 * atan2(sqrt(a), sqrt(1 - a));
+
+    return earthRadius * c;
   }
 
-  void _endRun() {
-    if (_currentRun == null) return;
+  void _handleRunEnd() async {
+    if (!mounted) return;
     
-    // Calculate final stats
-    final stats = {
-      'distance': _distance,
-      'averagePace': _calculateAveragePace(),
-      'totalTime': _duration.inSeconds,
-    };
+    await _locationSubscription?.cancel();
+    _locationSubscription = null;
+    _timer?.cancel();
     
-    _socketService.endRun(
-      widget.runId,
-      _userService.currentUserId ?? '',
-      stats,
-    );
-    
-    // Show completion modal
-    if (mounted) {
-      showDialog(
+    if (_startTime != null) {
+      final distance = _calculateTotalDistance();
+      final duration = DateTime.now().difference(_startTime!);
+      final averagePace = duration.inMinutes / (distance / 1000);
+
+      await _socketService.endRun(widget.runId);
+
+      await showDialog(
         context: context,
         barrierDismissible: false,
         builder: (context) => RunCompletionModal(
-          distance: _distance / 1000, // Convert meters to kilometers
-          duration: _duration,
-          averagePace: _calculateAveragePace(),
+          distance: distance,
+          duration: duration,
+          averagePace: averagePace,
         ),
-      ).then((_) {
-        // Navigate back after modal is closed
-        context.router.pop();
+      );
+
+      context.router.pop();
+    }
+  }
+
+  void _handleParticipantLocationUpdate(Map<String, dynamic> data) {
+    if (!mounted) return;
+    final participantId = data['participantId'];
+    final location = data['location'];
+    
+    if (participantId != null && location != null && _participants.containsKey(participantId)) {
+      final participant = _participants[participantId]!;
+      setState(() {
+        _participants[participantId] = Participant(
+          id: participant.id,
+          name: participant.name,
+          latitude: (location['coordinates'] as List<dynamic>)[1] as double,
+          longitude: (location['coordinates'] as List<dynamic>)[0] as double,
+        );
+        _updateParticipantMarker(_participants[participantId]!);
       });
     }
   }
 
-  double _calculateAveragePace() {
-    if (_distance == 0) return 0;
-    // Convert distance to kilometers and calculate minutes per kilometer
-    return (_duration.inMinutes / (_distance / 1000));
+  void _updateParticipantMarker(Participant participant) {
+    final markerId = MarkerId(participant.id);
+    setState(() {
+      _markers.removeWhere((marker) => marker.markerId == markerId);
+      _markers.add(
+        Marker(
+          markerId: markerId,
+          position: LatLng(participant.latitude, participant.longitude),
+          infoWindow: InfoWindow(title: participant.name),
+        ),
+      );
+    });
   }
 
-  double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
-    const r = 6371e3; // Earth's radius in meters
-    final phi1 = lat1 * pi / 180;
-    final phi2 = lat2 * pi / 180;
-    final deltaPhi = (lat2 - lat1) * pi / 180;
-    final deltaLambda = (lon2 - lon1) * pi / 180;
+  void _onMapCreated(GoogleMapController controller) {
+    _mapController = controller;
+  }
 
-    final a = sin(deltaPhi / 2) * sin(deltaPhi / 2) +
-        cos(phi1) * cos(phi2) * sin(deltaLambda / 2) * sin(deltaLambda / 2);
-    final c = 2 * atan2(sqrt(a), sqrt(1 - a));
+  void _toggleRun() async {
+    if (!_socketService.isConnected) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Socket not connected')),
+      );
+      return;
+    }
 
-    return r * c; // Distance in meters
+    try {
+      if (_isRunning) {
+        await _socketService.endRun(widget.runId);
+      } else {
+        await _socketService.startRun(widget.runId);
+        setState(() {
+          _startTime = DateTime.now();
+          _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+            if (mounted && _isRunning) {
+              setState(() {
+                _duration = DateTime.now().difference(_startTime!);
+              });
+            }
+          });
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
   }
 
   String _formatDuration(Duration duration) {
@@ -344,142 +350,68 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
     return '$hours:$minutes:$seconds';
   }
 
-  void _updateRouteAndStats(Position position) {
-    // Update route points
-    _routePoints.add(LatLng(position.latitude, position.longitude));
-
-    // Update distance
-    if (_routePoints.length > 1) {
-      final distance = _calculateDistance(
-        _routePoints[_routePoints.length - 2].latitude,
-        _routePoints[_routePoints.length - 2].longitude,
-        position.latitude,
-        position.longitude,
-      );
-      _distance += distance;
-    }
-
-    // Update pace
-    if (_duration.inSeconds > 0) {
-      _currentPace = _distance / _duration.inSeconds * 60;
-    }
-  }
-
-  @override
-  void dispose() {
-    _locationSubscription?.cancel();
-    _timer?.cancel();
-    _mapController?.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
-    if (_currentRun == null) {
-      return const Scaffold(
-        body: Center(
+    if (!_isInitialized) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Active Run'),
+        ),
+        body: const Center(
           child: CircularProgressIndicator(),
         ),
       );
     }
 
-    if (_mapError != null) {
-      return Scaffold(
-        appBar: AppBar(
-          title: Text(_currentRun!.title),
-        ),
-        body: Center(
-          child: Text(_mapError!),
-        ),
-      );
-    }
-
-    final initialPosition = _currentPosition != null
-        ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
-        : _currentRun!.checkpoints.isNotEmpty
-            ? LatLng(
-                _currentRun!.checkpoints.first.location.latitude,
-                _currentRun!.checkpoints.first.location.longitude,
-              )
-            : const LatLng(0, 0);
-
     return Scaffold(
       appBar: AppBar(
-        title: Text(_currentRun!.title),
+        title: const Text('Active Run'),
       ),
-      body: Stack(
+      body: Column(
         children: [
-          GoogleMap(
-            initialCameraPosition: CameraPosition(
-              target: initialPosition,
-              zoom: 15,
+          Expanded(
+            child: GoogleMap(
+              onMapCreated: _onMapCreated,
+              initialCameraPosition: const CameraPosition(
+                target: LatLng(0, 0),
+                zoom: 15,
+              ),
+              myLocationEnabled: true,
+              myLocationButtonEnabled: true,
+              markers: _markers,
+              polylines: _polylines,
             ),
-            markers: _markers,
-            circles: _circles,
-            polylines: _polylines,
-            myLocationEnabled: true,
-            myLocationButtonEnabled: true,
-            onMapCreated: (GoogleMapController controller) {
-              setState(() {
-                _mapController = controller;
-                _isMapInitialized = true;
-              });
-            },
           ),
-          Positioned(
-            top: 16,
-            left: 16,
-            right: 16,
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
+          Container(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
                     Text(
-                      _formatDuration(_duration),
-                      style: Theme.of(context).textTheme.headlineMedium,
+                      'Distance: ${(_distance / 1000).toStringAsFixed(2)} km',
+                      style: const TextStyle(fontSize: 18),
                     ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        Column(
-                          children: [
-                            Text(
-                              'Distance',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                            Text(
-                              '${(_distance / 1000).toStringAsFixed(2)} km',
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                          ],
-                        ),
-                        Column(
-                          children: [
-                            Text(
-                              'Pace',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                            Text(
-                              '${_currentPace.toStringAsFixed(2)} min/km',
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                          ],
-                        ),
-                      ],
+                    Text(
+                      'Time: ${_formatDuration(_duration)}',
+                      style: const TextStyle(fontSize: 18),
                     ),
                   ],
                 ),
-              ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: _toggleRun,
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 48),
+                    backgroundColor: _isRunning ? Colors.red : Colors.green,
+                  ),
+                  child: Text(_isRunning ? 'End Run' : 'Start Run'),
+                ),
+              ],
             ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _isRunning ? _endRun : _startRun,
-        icon: Icon(_isRunning ? Icons.stop : Icons.play_arrow),
-        label: Text(_isRunning ? 'End Run' : 'Start Run'),
       ),
     );
   }

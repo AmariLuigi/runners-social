@@ -13,6 +13,7 @@ import 'features/auth/domain/repositories/auth_repository.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/feed/data/repositories/feed_repository_impl.dart';
 import 'features/feed/domain/repositories/feed_repository.dart';
+import 'core/di/service_locator.dart';
 
 final getIt = GetIt.instance;
 
@@ -49,6 +50,7 @@ void setupDependencies() {
 }
 
 void main() {
+  setupServiceLocator();
   setupDependencies();
   runApp(
     const ProviderScope(
