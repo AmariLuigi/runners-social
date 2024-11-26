@@ -10,6 +10,7 @@ import 'package:runners_social/core/services/socket_service.dart';
 import 'package:runners_social/core/services/user_service.dart';
 import 'package:runners_social/features/run/data/models/run_session.dart';
 import 'package:runners_social/features/run/presentation/widgets/run_completion_modal.dart';
+import '../../data/models/location_model.dart';
 import '../providers/run_provider.dart';
 
 class ActiveRunScreen extends ConsumerStatefulWidget {
@@ -25,7 +26,7 @@ class ActiveRunScreen extends ConsumerStatefulWidget {
 }
 
 class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
-  late GoogleMapController _mapController;
+  GoogleMapController? _mapController;
   final Set<Marker> _markers = {};
   final Set<Circle> _circles = {};
   final Set<Polyline> _polylines = {};
@@ -40,6 +41,8 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
   double _currentPace = 0;
   RunSession? _currentRun;
   Position? _currentPosition;
+  bool _isMapInitialized = false;
+  String? _mapError;
 
   @override
   void initState() {
@@ -132,40 +135,46 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
   void _setupMap(RunSession run) {
     if (run.checkpoints.isEmpty) return;
 
-    // Add checkpoint markers and circles
-    for (final checkpoint in run.checkpoints) {
-      final position = LatLng(
-        checkpoint.location.latitude,
-        checkpoint.location.longitude,
-      );
+    try {
+      // Add checkpoint markers and circles
+      for (final checkpoint in run.checkpoints) {
+        final position = LatLng(
+          checkpoint.location.latitude,
+          checkpoint.location.longitude,
+        );
 
-      _markers.add(
-        Marker(
-          markerId: MarkerId('checkpoint_${checkpoint.id}'),
-          position: position,
-          icon: BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueViolet,
+        _markers.add(
+          Marker(
+            markerId: MarkerId('checkpoint_${checkpoint.id}'),
+            position: position,
+            icon: BitmapDescriptor.defaultMarkerWithHue(
+              BitmapDescriptor.hueViolet,
+            ),
+            infoWindow: InfoWindow(
+              title: checkpoint.name,
+              snippet: checkpoint.description,
+            ),
           ),
-          infoWindow: InfoWindow(
-            title: checkpoint.name,
-            snippet: checkpoint.description,
-          ),
-        ),
-      );
+        );
 
-      _circles.add(
-        Circle(
-          circleId: CircleId('checkpoint_${checkpoint.id}_radius'),
-          center: position,
-          radius: checkpoint.radius,
-          fillColor: Colors.blue.withOpacity(0.2),
-          strokeColor: Colors.blue,
-          strokeWidth: 1,
-        ),
-      );
+        _circles.add(
+          Circle(
+            circleId: CircleId('checkpoint_${checkpoint.id}_radius'),
+            center: position,
+            radius: checkpoint.radius,
+            fillColor: Colors.blue.withOpacity(0.2),
+            strokeColor: Colors.blue,
+            strokeWidth: 1,
+          ),
+        );
+      }
+
+      setState(() {});
+    } catch (e) {
+      setState(() {
+        _mapError = 'Error setting up map: $e';
+      });
     }
-
-    setState(() {});
   }
 
   void _updateParticipantMarkers() {
@@ -211,11 +220,11 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
         _currentPosition = position;
       });
 
-      _locationSubscription = Geolocator.getPositionStream().listen((position) {
+      _locationSubscription = Geolocator.getPositionStream().listen((Position position) {
         final latLng = LatLng(position.latitude, position.longitude);
         
-        if (_mapController != null) {
-          _mapController.animateCamera(
+        if (_mapController != null && _isMapInitialized) {
+          _mapController!.animateCamera(
             CameraUpdate.newLatLng(latLng),
           );
         }
@@ -248,26 +257,26 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
     return true;
   }
 
-  void _handleLocationUpdate(Position position) {
-    if (_currentRun == null) return;
-    
-    _socketService.updateLocation(
-      widget.runId,
-      {
-        'latitude': position.latitude,
-        'longitude': position.longitude,
-      },
-      _currentRun!.isActive,
-      _userService.currentUserId ?? '',
+  void _handleLocationUpdate(Position position) async {
+    if (widget.runId == null) return;
+
+    final location = LocationModel.fromPosition(
+      position.longitude,
+      position.latitude,
+      altitude: position.altitude,
+      speed: position.speed,
     );
-    
-    // Update local state
-    setState(() {
-      _currentPosition = position;
-      if (_isRunning) {
-        _updateRouteAndStats(position);
-      }
-    });
+
+    try {
+      await _socketService.emitLocationUpdate(
+        widget.runId!,
+        location,
+        isActive: _isRunning,
+      );
+    } catch (e) {
+      print('Error updating location: $e');
+      // Consider showing a snackbar or other user feedback
+    }
   }
 
   void _startRun() {
@@ -360,6 +369,7 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
   void dispose() {
     _locationSubscription?.cancel();
     _timer?.cancel();
+    _mapController?.dispose();
     super.dispose();
   }
 
@@ -373,6 +383,26 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
       );
     }
 
+    if (_mapError != null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(_currentRun!.title),
+        ),
+        body: Center(
+          child: Text(_mapError!),
+        ),
+      );
+    }
+
+    final initialPosition = _currentPosition != null
+        ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
+        : _currentRun!.checkpoints.isNotEmpty
+            ? LatLng(
+                _currentRun!.checkpoints.first.location.latitude,
+                _currentRun!.checkpoints.first.location.longitude,
+              )
+            : const LatLng(0, 0);
+
     return Scaffold(
       appBar: AppBar(
         title: Text(_currentRun!.title),
@@ -381,12 +411,7 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
         children: [
           GoogleMap(
             initialCameraPosition: CameraPosition(
-              target: _currentRun!.checkpoints.isNotEmpty
-                  ? LatLng(
-                      _currentRun!.checkpoints.first.location.latitude,
-                      _currentRun!.checkpoints.first.location.longitude,
-                    )
-                  : const LatLng(0, 0),
+              target: initialPosition,
               zoom: 15,
             ),
             markers: _markers,
@@ -394,8 +419,11 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
             polylines: _polylines,
             myLocationEnabled: true,
             myLocationButtonEnabled: true,
-            onMapCreated: (controller) {
-              _mapController = controller;
+            onMapCreated: (GoogleMapController controller) {
+              setState(() {
+                _mapController = controller;
+                _isMapInitialized = true;
+              });
             },
           ),
           Positioned(

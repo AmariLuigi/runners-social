@@ -1,5 +1,8 @@
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'dart:convert';
+import 'dart:io';
+import '../../features/run/data/models/location_model.dart';
 
 class SocketService {
   static const String baseUrl = 'http://localhost:3000';
@@ -7,6 +10,7 @@ class SocketService {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
   bool _isAuthenticated = false;
   bool _isEndingRun = false;
+  String? _userId;
 
   IO.Socket get socket {
     if (_socket == null) {
@@ -15,70 +19,116 @@ class SocketService {
     return _socket!;
   }
 
+  String _decodeBase64(String str) {
+    String output = str.replaceAll('-', '+').replaceAll('_', '/');
+    switch (output.length % 4) {
+      case 0:
+        break;
+      case 2:
+        output += '==';
+        break;
+      case 3:
+        output += '=';
+        break;
+      default:
+        throw Exception('Invalid base64 string');
+    }
+    return output;
+  }
+
   Future<void> connect() async {
+    if (_socket != null) {
+      print('Socket already connected');
+      return;
+    }
+
     try {
       final token = await _storage.read(key: 'token');
       if (token == null) {
-        print('No token available for socket connection');
-        return;
+        print('No token found in storage with key: token');
+        throw Exception('No auth token found');
       }
 
-      print('Connecting socket with token: ${token.substring(0, 20)}...');
-      
-      // Disconnect existing socket if any
-      if (_socket != null) {
-        _socket!.disconnect();
-        _socket = null;
+      print('Found token: ${token.substring(0, token.length < 20 ? token.length : 20)}...');
+
+      // Decode the JWT token to get the userId
+      final parts = token.split('.');
+      if (parts.length != 3) {
+        throw Exception('Invalid token format');
       }
 
-      // Remove 'Bearer ' prefix if present
-      final cleanToken = token.replaceAll('Bearer ', '');
+      try {
+        final normalizedPayload = _decodeBase64(parts[1]);
+        final payloadJson = utf8.decode(base64.decode(normalizedPayload));
+        final payload = json.decode(payloadJson);
+        _userId = payload['userId'];
 
-      _socket = IO.io(
-        baseUrl, 
-        IO.OptionBuilder()
-          .setTransports(['websocket'])
-          .setAuth({'token': cleanToken})
-          .setExtraHeaders({'authorization': cleanToken})
-          .enableForceNew()
-          .enableAutoConnect()
-          .build()
-      );
+        if (_userId == null) {
+          throw Exception('No userId found in token');
+        }
 
-      _socket!.onConnect((_) {
-        print('Socket connected successfully');
-        _isAuthenticated = true;
-      });
+        print('Connecting socket with userId: $_userId');
 
-      _socket!.onConnectError((data) {
-        print('Socket connection error: $data');
-        _isAuthenticated = false;
-      });
+        // Remove 'Bearer ' prefix if present
+        final cleanToken = token.replaceAll('Bearer ', '');
 
-      _socket!.on('error', (data) {
-        print('Socket error received: $data');
-        _isAuthenticated = false;
-      });
+        _socket = IO.io(
+          baseUrl,
+          IO.OptionBuilder()
+            .setTransports(['websocket'])
+            .setExtraHeaders({'authorization': 'Bearer $cleanToken'})
+            .setAuth({'token': cleanToken})
+            .enableAutoConnect()
+            .enableReconnection()
+            .build(),
+        );
 
-      _socket!.onDisconnect((_) {
-        print('Socket disconnected');
-        _isAuthenticated = false;
-      });
+        _setupSocketListeners();
+        
+        // Wait for connection
+        bool connected = false;
+        for (int i = 0; i < 5; i++) {
+          await Future.delayed(const Duration(seconds: 1));
+          if (_socket?.connected == true) {
+            connected = true;
+            break;
+          }
+        }
 
-      // Wait for connection
-      await Future.delayed(const Duration(milliseconds: 1000));
-      
-      if (!_socket!.connected) {
-        print('Socket failed to connect after timeout');
-        _isAuthenticated = false;
+        if (!connected) {
+          throw Exception('Failed to connect to socket server after 5 seconds');
+        }
+
+      } catch (e) {
+        print('Error decoding token or connecting: $e');
+        rethrow;
       }
-
-    } catch (e, stackTrace) {
-      print('Error connecting socket: $e');
-      print('Stack trace: $stackTrace');
-      _isAuthenticated = false;
-      _socket = null;
+    } catch (e) {
+      print('Socket connection error: $e');
+      rethrow;
     }
+  }
+
+  void _setupSocketListeners() {
+    _socket!.onConnect((_) {
+      print('Socket connected successfully');
+      _isAuthenticated = true;
+    });
+
+    _socket!.onConnectError((data) {
+      print('Socket connection error: $data');
+      _isAuthenticated = false;
+    });
+
+    _socket!.on('error', (data) {
+      print('Socket error received: $data');
+      _isAuthenticated = false;
+    });
+
+    _socket!.onDisconnect((_) {
+      print('Socket disconnected');
+      _isAuthenticated = false;
+    });
   }
 
   Future<bool> _ensureAuthenticated() async {
@@ -102,16 +152,25 @@ class SocketService {
     socket.emit('startRun', {'runSessionId': runId});
   }
 
-  void updateLocation(String runId, Map<String, dynamic> location, bool isActive, String userId) async {
-    final isAuth = await _ensureAuthenticated();
-    if (!isAuth) return;
-    
-    socket.emit('updateLocation', {
-      'runSessionId': runId,
-      'location': location,
-      'isActive': isActive,
-      'userId': userId,
-    });
+  Future<void> emitLocationUpdate(
+    String runId,
+    LocationModel location,
+    {bool isActive = true}
+  ) async {
+    try {
+      if (!isConnected) {
+        throw SocketException('Socket is not connected');
+      }
+
+      _socket?.emit('locationUpdate', {
+        'runSessionId': runId,
+        'location': location.toJson(),
+        'isActive': isActive,
+      });
+    } catch (e) {
+      print('Error emitting location update: $e');
+      rethrow;
+    }
   }
 
   Future<void> endRun(String runId, String userId, [Map<String, dynamic>? stats]) async {
@@ -189,7 +248,14 @@ class SocketService {
     _isAuthenticated = false;
   }
 
-  bool isConnected() {
-    return _socket?.connected ?? false;
-  }
+  bool get isConnected => _socket?.connected ?? false;
+}
+
+class LocationData {
+  final double latitude;
+  final double longitude;
+  final double altitude;
+  final double speed;
+
+  LocationData({required this.latitude, required this.longitude, required this.altitude, required this.speed});
 }

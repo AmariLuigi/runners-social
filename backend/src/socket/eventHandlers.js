@@ -104,7 +104,7 @@ class SocketEventHandlers {
     });
 
     socket.on('updateLocation', async (data) => {
-      await this.handleLocationUpdate(socket, data.runSessionId, data.location, data.pace, data.distance);
+      await this.handleLocationUpdate(socket, data.runSessionId, data.location, data.isActive, data.userId);
     });
 
     socket.on('endRun', async (data) => {
@@ -376,56 +376,88 @@ class SocketEventHandlers {
     }
   }
 
-  async handleLocationUpdate(socket, runSessionId, location, pace, distance) {
+  async handleLocationUpdate(socket, runSessionId, location, isActive, userId) {
     try {
-      const activeRun = this.activeRuns.get(runSessionId);
-      if (!activeRun) return;
-
-      const userId = await this.getUserIdBySocket(socket.id);
-      let participant;
-      for (const p of activeRun.participants) {
-        if (p.userId === userId) {
-          participant = p;
-          break;
-        }
-      }
+      console.log('Handling location update:', { runSessionId, location, isActive, userId });
       
-      if (!participant) return;
+      if (!userId) {
+        userId = socket.userId; // Fallback to socket's userId if not provided
+      }
 
-      // Update participant's stats
-      participant.lastLocation = location;
-      participant.distance = distance;
-      participant.pace = pace;
+      if (!userId) {
+        throw new Error('No userId provided or found in socket');
+      }
 
-      // Broadcast to all participants in the run
-      this.io.to(`run:${runSessionId}`).emit('locationUpdate', {
-        runSessionId,
-        participant: {
-          userId,
-          username: participant.username,
-          location,
-          pace,
-          distance
-        }
+      const runSession = await RunSession.findById(runSessionId);
+      if (!runSession) {
+        throw new Error('Run session not found');
+      }
+
+      console.log('Found run session:', {
+        id: runSession._id,
+        status: runSession.status,
+        participantCount: runSession.participants.length
       });
 
-      // Update run session in database
-      await RunSession.findByIdAndUpdate(runSessionId, {
-        $push: {
-          [`locationHistory.${userId}`]: {
-            coordinates: location,
-            timestamp: new Date()
+      // Verify participant
+      const participant = runSession.participants.find(p => {
+        const participantUserId = p.user.toString();
+        console.log('Comparing participant:', {
+          participantUserId,
+          userId
+        });
+        return participantUserId === userId;
+      });
+      
+      if (!participant) {
+        throw new Error('User not authorized for this run session');
+      }
+
+      // Create location entry
+      const locationEntry = {
+        type: 'Point',
+        coordinates: [location.longitude, location.latitude],  // GeoJSON format: [longitude, latitude]
+        altitude: location.altitude || 0,
+        speed: location.speed || 0,
+        timestamp: new Date(location.timestamp) || new Date()
+      };
+
+      console.log('Updating run session with location:', locationEntry);
+
+      // Update run session with new location
+      const updatedSession = await RunSession.findByIdAndUpdate(
+        runSessionId,
+        {
+          $push: {
+            locationHistory: locationEntry
           },
-          [`paceHistory.${userId}`]: {
-            pace,
-            timestamp: new Date()
+          $set: {
+            'participants.$[elem].lastLocation': locationEntry,
+            'participants.$[elem].isActive': isActive
           }
         },
-        [`currentDistance.${userId}`]: distance
+        {
+          arrayFilters: [{ 'elem.user': userId }],
+          new: true
+        }
+      );
+
+      if (!updatedSession) {
+        throw new Error('Failed to update run session');
+      }
+
+      console.log('Successfully updated run session with location');
+
+      // Broadcast to all participants in the run
+      this.io.to(`run:${runSessionId}`).emit('locationUpdated', {
+        participantId: userId,
+        location: locationEntry,
+        isActive
       });
+
     } catch (error) {
       console.error('Error updating location:', error);
-      socket.emit('error', { message: 'Failed to update location' });
+      socket.emit('error', { message: error.message || 'Failed to update location' });
     }
   }
 

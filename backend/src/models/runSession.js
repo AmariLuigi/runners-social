@@ -55,6 +55,30 @@ const checkpointSchema = new mongoose.Schema({
   }]
 });
 
+const locationSchema = new mongoose.Schema({
+  type: {
+    type: String,
+    enum: ['Point'],
+    default: 'Point'
+  },
+  coordinates: {
+    type: [Number],  // [longitude, latitude]
+    required: true
+  },
+  altitude: {
+    type: Number,
+    default: 0
+  },
+  speed: {
+    type: Number,
+    default: 0
+  },
+  timestamp: {
+    type: Date,
+    default: Date.now
+  }
+});
+
 const runSessionSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
@@ -100,10 +124,10 @@ const runSessionSchema = new mongoose.Schema({
       type: Date,
       default: Date.now
     },
-    status: {
-      type: String,
-      enum: ['ready', 'running', 'paused', 'finished'],
-      default: 'ready'
+    lastLocation: locationSchema,
+    isActive: {
+      type: Boolean,
+      default: true
     }
   }],
   maxParticipants: {
@@ -112,19 +136,7 @@ const runSessionSchema = new mongoose.Schema({
   },
   chat: [messageSchema],
   checkpoints: [checkpointSchema],
-  locationHistory: {
-    type: Map,
-    of: [{
-      coordinates: {
-        type: [Number],
-        required: true
-      },
-      timestamp: {
-        type: Date,
-        default: Date.now
-      }
-    }]
-  },
+  locationHistory: [locationSchema],
   paceHistory: {
     type: Map,
     of: [{
