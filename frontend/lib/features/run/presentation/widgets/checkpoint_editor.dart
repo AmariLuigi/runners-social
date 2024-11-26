@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../../data/models/run_session.dart';
+import 'animated_location_marker.dart';
 
 class CheckpointEditor extends StatefulWidget {
   final List<Map<String, dynamic>> checkpoints;
@@ -16,10 +18,10 @@ class CheckpointEditor extends StatefulWidget {
   State<CheckpointEditor> createState() => _CheckpointEditorState();
 }
 
-class _CheckpointEditorState extends State<CheckpointEditor> {
-  late GoogleMapController _mapController;
-  final Set<Marker> _markers = {};
-  final Set<Circle> _circles = {};
+class _CheckpointEditorState extends State<CheckpointEditor> with SingleTickerProviderStateMixin {
+  final MapController _mapController = MapController();
+  final List<Marker> _markers = [];
+  final List<CircleMarker> _circles = [];
 
   @override
   void initState() {
@@ -41,28 +43,54 @@ class _CheckpointEditorState extends State<CheckpointEditor> {
   }
 
   void _addCheckpointMarker(LatLng position, String name, int index) {
-    final markerId = MarkerId('checkpoint_$index');
-    final circleId = CircleId('checkpoint_$index');
-
+    final primaryColor = Theme.of(context).primaryColor;
+    
     setState(() {
       _markers.add(
         Marker(
-          markerId: markerId,
-          position: position,
-          infoWindow: InfoWindow(title: name),
-          draggable: true,
-          onDragEnd: (newPosition) => _updateCheckpointPosition(index, newPosition),
+          point: position,
+          width: 60,
+          height: 80,
+          builder: (context) => GestureDetector(
+            onPanEnd: (details) => _updateCheckpointPosition(index, position),
+            child: AnimatedLocationMarker(
+              color: primaryColor,
+              child: Icon(
+                Icons.location_on,
+                color: primaryColor,
+                size: 30,
+              ),
+              label: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: primaryColor.withOpacity(0.8),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  name,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
       );
 
       _circles.add(
-        Circle(
-          circleId: circleId,
-          center: position,
-          radius: widget.checkpoints[index]['radius'] as double,
-          fillColor: Colors.blue.withOpacity(0.2),
-          strokeColor: Colors.blue,
-          strokeWidth: 1,
+        CircleMarker(
+          point: position,
+          radius: widget.checkpoints[index]['radius'],
+          color: primaryColor.withOpacity(0.1),
+          borderColor: primaryColor,
+          borderStrokeWidth: 2,
+          useRadiusInMeter: true,
         ),
       );
     });
@@ -81,13 +109,8 @@ class _CheckpointEditorState extends State<CheckpointEditor> {
     _initializeMarkers();
   }
 
-  void _addNewCheckpoint() async {
-    final center = await _mapController.getLatLng(
-      ScreenCoordinate(
-        x: MediaQuery.of(context).size.width ~/ 2,
-        y: MediaQuery.of(context).size.height ~/ 2,
-      ),
-    );
+  void _addNewCheckpoint() {
+    final center = _mapController.center;
 
     final checkpoint = {
       'name': 'Checkpoint ${widget.checkpoints.length + 1}',
@@ -95,7 +118,7 @@ class _CheckpointEditorState extends State<CheckpointEditor> {
         'latitude': center.latitude,
         'longitude': center.longitude,
       },
-      'radius': 20,
+      'radius': 20.0,
     };
 
     final newCheckpoints = [...widget.checkpoints, checkpoint];
@@ -132,18 +155,20 @@ class _CheckpointEditorState extends State<CheckpointEditor> {
               height: 300,
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
-                child: GoogleMap(
-                  initialCameraPosition: const CameraPosition(
-                    target: LatLng(0, 0),
+                child: FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(
+                    center: const LatLng(0, 0),
                     zoom: 15,
                   ),
-                  onMapCreated: (controller) {
-                    _mapController = controller;
-                  },
-                  markers: _markers,
-                  circles: _circles,
-                  myLocationEnabled: true,
-                  myLocationButtonEnabled: true,
+                  children: [
+                    TileLayer(
+                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.runners_social.app',
+                    ),
+                    MarkerLayer(markers: _markers),
+                    CircleLayer(circles: _circles),
+                  ],
                 ),
               ),
             ),
@@ -199,74 +224,65 @@ class _CheckpointEditorState extends State<CheckpointEditor> {
         TextEditingController(text: checkpoint['description'] ?? '');
     double radius = checkpoint['radius'];
 
-    final result = await showDialog<Map<String, dynamic>>(
+    await showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Edit Checkpoint'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Name',
-                ),
-              ),
-              TextField(
-                controller: descriptionController,
-                decoration: const InputDecoration(
-                  labelText: 'Description',
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  const Text('Radius (m): '),
-                  Expanded(
-                    child: Slider(
-                      value: radius,
-                      min: 10,
-                      max: 100,
-                      divisions: 18,
-                      label: radius.round().toString(),
-                      onChanged: (value) {
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(labelText: 'Name'),
+            ),
+            TextField(
+              controller: descriptionController,
+              decoration: const InputDecoration(labelText: 'Description'),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                const Text('Radius (m): '),
+                Expanded(
+                  child: Slider(
+                    value: radius,
+                    min: 10,
+                    max: 100,
+                    divisions: 18,
+                    label: radius.round().toString(),
+                    onChanged: (value) {
+                      setState(() {
                         radius = value;
-                        (context as Element).markNeedsBuild();
-                      },
-                    ),
+                      });
+                    },
                   ),
-                  Text(radius.round().toString()),
-                ],
-              ),
-            ],
-          ),
+                ),
+              ],
+            ),
+          ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('Cancel'),
           ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop({
-              'name': nameController.text,
-              'description': descriptionController.text,
-              'radius': radius,
-            }),
+          TextButton(
+            onPressed: () {
+              final updatedCheckpoints = [...widget.checkpoints];
+              updatedCheckpoints[index] = {
+                ...updatedCheckpoints[index],
+                'name': nameController.text,
+                'description': descriptionController.text,
+                'radius': radius,
+              };
+              widget.onCheckpointsChanged(updatedCheckpoints);
+              _initializeMarkers();
+              Navigator.of(context).pop();
+            },
             child: const Text('Save'),
           ),
         ],
       ),
     );
-
-    if (result != null) {
-      final updatedCheckpoints = [...widget.checkpoints];
-      updatedCheckpoints[index] = {
-        ...updatedCheckpoints[index],
-        ...result,
-      };
-      widget.onCheckpointsChanged(updatedCheckpoints);
-      _initializeMarkers();
-    }
   }
 }

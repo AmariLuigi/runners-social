@@ -15,7 +15,6 @@ dependencies:
   flutter_riverpod: ^2.4.9
   riverpod: ^2.4.9
   flutter_secure_storage: ^9.2.2
-  google_maps_flutter: ^2.5.0
   location: ^5.0.3
   geolocator: ^10.1.0
   socket_io_client: ^2.0.3+1
@@ -27,6 +26,8 @@ dependencies:
   get_it: ^8.0.2
   json_annotation: ^4.9.0
   lottie: ^2.7.0
+  flutter_map: ^5.0.0
+  latlong2: ^0.9.0
 
 dev_dependencies:
   flutter_test:
@@ -41,5 +42,3 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/
-    - assets/icons/
-    - assets/animations/

@@ -1,15 +1,20 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:runners_social/core/services/socket_service.dart';
 import 'package:runners_social/features/run/data/models/location_model.dart';
 import 'package:runners_social/features/run/data/models/participant.dart';
 import 'package:runners_social/features/run/presentation/widgets/run_completion_modal.dart';
+import 'package:runners_social/features/run/presentation/widgets/animated_location_marker.dart';
 
 class ActiveRunScreen extends ConsumerStatefulWidget {
   final String runId;
@@ -23,13 +28,11 @@ class ActiveRunScreen extends ConsumerStatefulWidget {
   ConsumerState<ActiveRunScreen> createState() => _ActiveRunScreenState();
 }
 
-class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
+class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> with SingleTickerProviderStateMixin {
   late final SocketService _socketService;
-  GoogleMapController? _mapController;
+  final MapController _mapController = MapController();
   StreamSubscription<Position>? _locationSubscription;
-  Set<Marker> _markers = {};
-  Set<Polyline> _polylines = {};
-  List<LatLng> _routeCoordinates = [];
+  final List<LatLng> _routeCoordinates = [];
   Timer? _timer;
   Duration _duration = Duration.zero;
   double _distance = 0;
@@ -40,34 +43,204 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
   final List<Function> _socketListeners = [];
   Map<String, Participant> _participants = {};
   bool _isInitialized = false;
+  Position? _currentPosition;
+  bool _isFollowingUser = true;
+  late AnimationController _markerAnimationController;
+  late Animation<double> _markerAnimation;
 
   @override
   void initState() {
     super.initState();
     _socketService = GetIt.I<SocketService>();
+    _markerAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    );
+    _markerAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(
+        parent: _markerAnimationController,
+        curve: Curves.elasticOut,
+      ),
+    );
+    _markerAnimationController.repeat(reverse: true);
     _initialize();
   }
 
   Future<void> _initialize() async {
-    if (!mounted) return;
-
     try {
+      debugPrint('Starting initialization...');
+      await _requestLocationPermission();
+      debugPrint('Location permission granted');
+
+      // Get initial position
+      final initialPosition = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      debugPrint('Got initial position: ${initialPosition.latitude}, ${initialPosition.longitude}');
+
+      setState(() {
+        _currentPosition = initialPosition;
+      });
+
       await _socketService.ensureConnected();
+      debugPrint('Socket connected');
       
-      if (!mounted) return;
+      await _socketService.joinRun(widget.runId);
+      debugPrint('Joined run: ${widget.runId}');
+
+      await _setupLocationStream();
+      debugPrint('Location stream setup complete');
+      
+      _setupSocketListeners();
+      debugPrint('Socket listeners setup complete');
       
       setState(() {
         _isInitialized = true;
       });
-
-      _setupSocketListeners();
-      await _socketService.joinRun(widget.runId);
-      await _startLocationTracking();
+      debugPrint('Initialization complete');
     } catch (e) {
-      if (!mounted) return;
+      debugPrint('Error during initialization: $e');
+      setState(() {
+        _mapError = 'Failed to initialize map: $e';
+      });
+    }
+  }
+
+  Future<void> _requestLocationPermission() async {
+    debugPrint('Checking location services...');
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Location services are disabled. Please enable location services.'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+      throw Exception('Location services are disabled');
+    }
+    debugPrint('Location services are enabled');
+
+    debugPrint('Checking location permission...');
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      debugPrint('Requesting location permission...');
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Location permission denied. Please enable location permission.'),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+        throw Exception('Location permissions are denied');
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Location permissions are permanently denied. Please enable in settings.'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+      throw Exception('Location permissions are permanently denied');
+    }
+
+    debugPrint('Location permission granted: $permission');
+  }
+
+  Future<void> _setupLocationStream() async {
+    debugPrint('Setting up location stream...');
+    _locationSubscription?.cancel();
+
+    try {
+      final LocationSettings locationSettings = LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 10,
+        timeLimit: const Duration(seconds: 5),
+      );
+
+      _locationSubscription = Geolocator.getPositionStream(
+        locationSettings: locationSettings,
+      ).listen(
+        (position) {
+          debugPrint('New position received: ${position.latitude}, ${position.longitude}');
+          if (mounted) {
+            _handleLocationUpdate(position);
+          }
+        },
+        onError: (e) {
+          debugPrint('Error in location stream: $e');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Location error: $e'),
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          }
+        },
+        cancelOnError: false,
+      );
+
+      debugPrint('Location stream setup successful');
+    } catch (e) {
+      debugPrint('Error setting up location stream: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error setting up location tracking: $e'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+      rethrow;
+    }
+  }
+
+  void _handleLocationUpdate(Position position) {
+    debugPrint('Handling location update: ${position.latitude}, ${position.longitude}');
+    if (!mounted || _disposed) return;
+
+    setState(() {
+      _currentPosition = position;
+    });
+
+    if (_isRunning) {
+      final newCoordinate = LatLng(position.latitude, position.longitude);
+      _routeCoordinates.add(newCoordinate);
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error initializing: $e')),
+      if (_routeCoordinates.length > 1) {
+        final lastCoordinate = _routeCoordinates[_routeCoordinates.length - 2];
+        final distance = Geolocator.distanceBetween(
+          lastCoordinate.latitude,
+          lastCoordinate.longitude,
+          newCoordinate.latitude,
+          newCoordinate.longitude,
+        );
+        _distance += distance;
+      }
+
+      if (_isFollowingUser) {
+        _mapController.move(newCoordinate, _mapController.zoom);
+      }
+
+      setState(() {}); // Update polylines
+
+      _socketService.emitLocationUpdate(
+        runId: widget.runId,
+        location: LocationModel(
+          coordinates: [position.longitude, position.latitude],
+          altitude: position.altitude,
+          speed: position.speed,
+          timestamp: DateTime.now(),
+        ),
       );
     }
   }
@@ -104,7 +277,6 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
         final participant = Participant.fromJson(data['participant'] as Map<String, dynamic>);
         setState(() {
           _participants[participant.id] = participant;
-          _updateParticipantMarker(participant);
         });
       }
     });
@@ -115,7 +287,6 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
       if (participantId != null) {
         setState(() {
           _participants.remove(participantId);
-          _markers.removeWhere((marker) => marker.markerId.value == participantId);
         });
       }
     });
@@ -125,124 +296,6 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
         _handleParticipantLocationUpdate(data);
       }
     });
-  }
-
-  @override
-  void dispose() {
-    _disposed = true;
-    for (final removeListener in _socketListeners) {
-      removeListener();
-    }
-    _locationSubscription?.cancel();
-    _timer?.cancel();
-    _mapController?.dispose();
-    super.dispose();
-  }
-
-  Future<void> _startLocationTracking() async {
-    try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        throw Exception('Location services are disabled');
-      }
-
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          throw Exception('Location permissions are denied');
-        }
-      }
-
-      if (permission == LocationPermission.deniedForever) {
-        throw Exception('Location permissions are permanently denied');
-      }
-
-      _locationSubscription = Geolocator.getPositionStream(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          distanceFilter: 10,
-        ),
-      ).listen(_handleLocationUpdate);
-
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error starting location tracking: ${e.toString()}')),
-        );
-      }
-    }
-  }
-
-  void _handleLocationUpdate(Position position) {
-    if (!mounted || !_isRunning) return;
-
-    final location = LocationModel(
-      coordinates: [position.longitude, position.latitude],
-      altitude: position.altitude,
-      speed: position.speed,
-      timestamp: DateTime.now(),
-    );
-
-    _socketService.emitLocationUpdate(
-      runId: widget.runId,
-      location: location,
-    );
-
-    setState(() {
-      _routeCoordinates.add(
-        LatLng(position.latitude, position.longitude),
-      );
-      _updateRouteAndStats();
-    });
-  }
-
-  void _updateRouteAndStats() {
-    if (_routeCoordinates.isEmpty) return;
-
-    setState(() {
-      _polylines.clear();
-      _polylines.add(
-        Polyline(
-          polylineId: const PolylineId('route'),
-          points: _routeCoordinates,
-          color: Colors.blue,
-          width: 5,
-        ),
-      );
-
-      if (_mapController != null) {
-        _mapController!.animateCamera(
-          CameraUpdate.newLatLng(_routeCoordinates.last),
-        );
-      }
-    });
-  }
-
-  double _calculateTotalDistance() {
-    double totalDistance = 0;
-    for (int i = 0; i < _routeCoordinates.length - 1; i++) {
-      totalDistance += _calculateDistance(
-        _routeCoordinates[i],
-        _routeCoordinates[i + 1],
-      );
-    }
-    return totalDistance;
-  }
-
-  double _calculateDistance(LatLng start, LatLng end) {
-    const int earthRadius = 6371000; // Earth's radius in meters
-    
-    final lat1 = start.latitude * pi / 180;
-    final lat2 = end.latitude * pi / 180;
-    final dLat = (end.latitude - start.latitude) * pi / 180;
-    final dLon = (end.longitude - start.longitude) * pi / 180;
-
-    final a = sin(dLat / 2) * sin(dLat / 2) +
-        cos(lat1) * cos(lat2) * sin(dLon / 2) * sin(dLon / 2);
-    final c = 2 * atan2(sqrt(a), sqrt(1 - a));
-
-    return earthRadius * c;
   }
 
   void _handleRunEnd() async {
@@ -287,27 +340,44 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
           latitude: (location['coordinates'] as List<dynamic>)[1] as double,
           longitude: (location['coordinates'] as List<dynamic>)[0] as double,
         );
-        _updateParticipantMarker(_participants[participantId]!);
       });
     }
   }
 
-  void _updateParticipantMarker(Participant participant) {
-    final markerId = MarkerId(participant.id);
-    setState(() {
-      _markers.removeWhere((marker) => marker.markerId == markerId);
-      _markers.add(
-        Marker(
-          markerId: markerId,
-          position: LatLng(participant.latitude, participant.longitude),
-          infoWindow: InfoWindow(title: participant.name),
-        ),
+  double _calculateTotalDistance() {
+    double totalDistance = 0;
+    for (int i = 0; i < _routeCoordinates.length - 1; i++) {
+      totalDistance += _calculateDistance(
+        _routeCoordinates[i],
+        _routeCoordinates[i + 1],
       );
-    });
+    }
+    return totalDistance;
   }
 
-  void _onMapCreated(GoogleMapController controller) {
-    _mapController = controller;
+  double _calculateDistance(LatLng start, LatLng end) {
+    const int earthRadius = 6371000; // Earth's radius in meters
+    
+    final lat1 = start.latitude * pi / 180;
+    final lat2 = end.latitude * pi / 180;
+    final dLat = (end.latitude - start.latitude) * pi / 180;
+    final dLon = (end.longitude - start.longitude) * pi / 180;
+
+    final a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(lat1) * cos(lat2) * sin(dLon / 2) * sin(dLon / 2);
+    final c = 2 * atan2(sqrt(a), sqrt(1 - a));
+
+    return earthRadius * c;
+  }
+
+  void _centerOnUser() {
+    if (_currentPosition != null) {
+      _isFollowingUser = true;
+      _mapController.move(
+        LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+        _mapController.zoom,
+      );
+    }
   }
 
   void _toggleRun() async {
@@ -350,41 +420,190 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
     return '$hours:$minutes:$seconds';
   }
 
+  Future<bool> _onWillPop() async {
+    if (_isRunning) {
+      _showExitConfirmationDialog();
+      return false;
+    }
+    return true;
+  }
+
+  void _showExitConfirmationDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Exit Run'),
+        content: const Text('Are you sure you want to exit the run?'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              await _stopRun();
+              if (mounted) {
+                Navigator.of(context).pop(); // Close dialog
+                context.router.pop(); // Exit screen
+              }
+            },
+            child: const Text('Exit'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _stopRun() async {
+    _timer?.cancel();
+    _locationSubscription?.cancel();
+    if (_isRunning) {
+      setState(() {
+        _isRunning = false;
+      });
+      await _socketService.endRun(widget.runId);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (!_isInitialized) {
-      return Scaffold(
+    return WillPopScope(
+      onWillPop: _onWillPop,
+      child: Scaffold(
         appBar: AppBar(
           title: const Text('Active Run'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => _onWillPop().then((canPop) {
+              if (canPop) Navigator.of(context).pop();
+            }),
+          ),
+          actions: [
+            IconButton(
+              icon: Icon(
+                _isFollowingUser ? Icons.gps_fixed : Icons.gps_not_fixed,
+                color: _isFollowingUser ? Colors.blue : Colors.grey,
+              ),
+              onPressed: _centerOnUser,
+            ),
+          ],
         ),
-        body: const Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+        body: _buildBody(),
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_mapError != null) {
+      return Center(child: Text(_mapError!));
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Active Run'),
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: GoogleMap(
-              onMapCreated: _onMapCreated,
-              initialCameraPosition: const CameraPosition(
-                target: LatLng(0, 0),
-                zoom: 15,
-              ),
-              myLocationEnabled: true,
-              myLocationButtonEnabled: true,
-              markers: _markers,
-              polylines: _polylines,
+    if (!_isInitialized || _currentPosition == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final primaryColor = Theme.of(context).primaryColor;
+    
+    return Stack(
+      children: [
+        FlutterMap(
+          mapController: _mapController,
+          options: MapOptions(
+            center: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+            zoom: 15,
+            onPositionChanged: (position, hasGesture) {
+              if (hasGesture) {
+                _isFollowingUser = false;
+              }
+            },
+          ),
+          children: [
+            TileLayer(
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              userAgentPackageName: 'com.runners_social.app',
+            ),
+            PolylineLayer(
+              polylines: [
+                if (_routeCoordinates.isNotEmpty)
+                  Polyline(
+                    points: _routeCoordinates,
+                    color: primaryColor,
+                    strokeWidth: 4,
+                  ),
+              ],
+            ),
+            MarkerLayer(
+              markers: [
+                if (_currentPosition != null)
+                  Marker(
+                    point: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+                    width: 60,
+                    height: 80,
+                    builder: (context) => AnimatedLocationMarker(
+                      color: primaryColor,
+                      showWaves: _isRunning,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: primaryColor,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white,
+                            width: 2,
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.navigation,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                      label: _isRunning ? Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: primaryColor.withOpacity(0.8),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Text(
+                          'Running',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ) : null,
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+        Positioned(
+          right: 16,
+          bottom: 100,
+          child: FloatingActionButton(
+            onPressed: _centerOnUser,
+            child: Icon(
+              _isFollowingUser ? Icons.gps_fixed : Icons.gps_not_fixed,
             ),
           ),
-          Container(
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: Container(
             padding: const EdgeInsets.all(16),
+            color: Theme.of(context).scaffoldBackgroundColor,
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -411,8 +630,20 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
               ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
+  }
+
+  @override
+  void dispose() {
+    _markerAnimationController.dispose();
+    _disposed = true;
+    for (final removeListener in _socketListeners) {
+      removeListener();
+    }
+    _locationSubscription?.cancel();
+    _timer?.cancel();
+    super.dispose();
   }
 }
