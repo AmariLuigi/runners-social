@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'core/services/user_service.dart';
+import 'core/services/api_service.dart';
 import 'core/theme/app_theme.dart';
 import 'routes/app_router.dart';
 import 'features/auth/data/repositories/auth_repository_impl.dart';
@@ -10,17 +13,13 @@ import 'features/auth/domain/repositories/auth_repository.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/feed/data/repositories/feed_repository_impl.dart';
 import 'features/feed/domain/repositories/feed_repository.dart';
-import 'dart:developer' as developer;
 
 final getIt = GetIt.instance;
 
 void setupDependencies() {
   // Core
+  getIt.registerLazySingleton<http.Client>(() => http.Client());
   getIt.registerLazySingleton(() => const FlutterSecureStorage());
-  getIt.registerLazySingleton(() => http.Client());
-
-  // Test backend connection
-  testBackendConnection();
 
   // Repositories
   getIt.registerLazySingleton<AuthRepository>(
@@ -43,27 +42,23 @@ void setupDependencies() {
   getIt.registerFactory(
     () => AuthBloc(authRepository: getIt<AuthRepository>()),
   );
-}
 
-Future<void> testBackendConnection() async {
-  try {
-    final response = await http.get(Uri.parse('http://localhost:3000/api/auth'));
-    developer.log('Backend connection test: ${response.statusCode}', name: 'Backend');
-    if (response.statusCode == 404) {
-      developer.log('Successfully connected to backend', name: 'Backend');
-    }
-  } catch (e) {
-    developer.log('Failed to connect to backend: $e', name: 'Backend', error: e);
-  }
+  // Register services as singletons
+  getIt.registerLazySingleton<UserService>(() => UserService());
+  getIt.registerLazySingleton<ApiService>(() => ApiService());
 }
 
 void main() {
   setupDependencies();
-  runApp(MyApp());
+  runApp(
+    const ProviderScope(
+      child: MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatefulWidget {
-  MyApp({super.key});
+  const MyApp({super.key});
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -92,7 +87,6 @@ class _MyAppState extends State<MyApp> {
         listener: (context, state) {
           state.maybeWhen(
             unauthenticated: () {
-              developer.log('User is unauthenticated, redirecting to login', name: 'Auth');
               _appRouter.replaceAll([const LoginRoute()]);
             },
             orElse: () {},

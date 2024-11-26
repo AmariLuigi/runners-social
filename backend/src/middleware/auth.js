@@ -25,7 +25,7 @@ const authenticateToken = async (req, res, next) => {
     }
 
     req.token = token;
-    req.user = decoded;  
+    req.user = { userId: user._id, email: user.email };
     next();
   } catch (error) {
     console.error('Auth error:', error);

@@ -18,9 +18,7 @@ class CreatePostButton extends StatelessWidget {
             child: Row(
               children: [
                 CircleAvatar(
-                  backgroundImage: NetworkImage(
-                    'currentUserProfileImage', // TODO: Get from auth
-                  ),
+                  backgroundImage: const AssetImage('assets/images/default_avatar.png'),
                 ),
                 const SizedBox(width: 16),
                 Text(

@@ -16,18 +16,20 @@ dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIO(server, {
-  cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:51595',
-    methods: ['GET', 'POST'],
-    credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization']
-  }
-});
 
-// Middleware
+// CORS configuration for regular HTTP requests
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:51595',
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // Allow any localhost origin
+    if (origin.match(/^http:\/\/localhost:[0-9]+$/)) {
+      return callback(null, true);
+    }
+    
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -45,6 +47,22 @@ app.use((req, res, next) => {
     console.log('Body:', req.body);
   }
   next();
+});
+
+// Socket.IO configuration with CORS
+const io = socketIO(server, {
+  cors: {
+    origin: function(origin, callback) {
+      if (!origin) return callback(null, true);
+      if (origin.match(/^http:\/\/localhost:[0-9]+$/)) {
+        return callback(null, true);
+      }
+      callback(new Error('Not allowed by CORS'));
+    },
+    methods: ['GET', 'POST'],
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization']
+  }
 });
 
 // Database connection

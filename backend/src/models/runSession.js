@@ -1,5 +1,60 @@
 const mongoose = require('mongoose');
 
+const messageSchema = new mongoose.Schema({
+  sender: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  content: {
+    type: String,
+    required: true
+  },
+  timestamp: {
+    type: Date,
+    default: Date.now
+  },
+  type: {
+    type: String,
+    enum: ['text', 'system', 'achievement'],
+    default: 'text'
+  }
+});
+
+const checkpointSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true
+  },
+  description: String,
+  location: {
+    type: {
+      type: String,
+      enum: ['Point'],
+      default: 'Point'
+    },
+    coordinates: {
+      type: [Number],
+      required: true
+    }
+  },
+  radius: {
+    type: Number,
+    default: 20 // meters
+  },
+  order: {
+    type: Number,
+    required: true
+  },
+  participantProgress: [{
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    reachedAt: Date
+  }]
+});
+
 const runSessionSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
@@ -18,13 +73,18 @@ const runSessionSchema = new mongoose.Schema({
   endTime: Date,
   status: {
     type: String,
-    enum: ['active', 'paused', 'completed', 'cancelled'],
-    default: 'active'
+    enum: ['planned', 'active', 'paused', 'completed', 'cancelled'],
+    default: 'planned'
   },
   type: {
     type: String,
     enum: ['solo', 'group', 'challenge'],
     default: 'solo'
+  },
+  runStyle: {
+    type: String,
+    enum: ['free', 'checkpoint', 'race'],
+    default: 'free'
   },
   participants: [{
     user: {
@@ -39,18 +99,52 @@ const runSessionSchema = new mongoose.Schema({
     joinedAt: {
       type: Date,
       default: Date.now
-    }
-  }],
-  locationHistory: [{
-    coordinates: {
-      type: [Number], // [longitude, latitude]
-      required: true
     },
-    timestamp: {
-      type: Date,
-      default: Date.now
+    status: {
+      type: String,
+      enum: ['ready', 'running', 'paused', 'finished'],
+      default: 'ready'
     }
   }],
+  maxParticipants: {
+    type: Number,
+    default: 1
+  },
+  chat: [messageSchema],
+  checkpoints: [checkpointSchema],
+  locationHistory: {
+    type: Map,
+    of: [{
+      coordinates: {
+        type: [Number],
+        required: true
+      },
+      timestamp: {
+        type: Date,
+        default: Date.now
+      }
+    }]
+  },
+  paceHistory: {
+    type: Map,
+    of: [{
+      pace: Number,
+      timestamp: Date
+    }]
+  },
+  currentDistance: {
+    type: Map,
+    of: Number
+  },
+  scheduledStart: {
+    type: Date
+  },
+  weather: {
+    temperature: Number,
+    condition: String,
+    windSpeed: Number,
+    humidity: Number
+  },
   metrics: [{
     distance: Number, // in meters
     duration: Number, // in seconds
@@ -73,12 +167,6 @@ const runSessionSchema = new mongoose.Schema({
     elevationGain: Number,
     averageHeartRate: Number
   },
-  weather: {
-    temperature: Number,
-    condition: String,
-    humidity: Number,
-    windSpeed: Number
-  },
   route: {
     name: String,
     difficulty: {
@@ -90,27 +178,6 @@ const runSessionSchema = new mongoose.Schema({
       enum: ['road', 'trail', 'track', 'mixed']
     }
   },
-  chat: [{
-    sender: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true
-    },
-    message: {
-      type: String,
-      required: true
-    },
-    timestamp: {
-      type: Date,
-      default: Date.now
-    }
-  }],
-  privacy: {
-    type: String,
-    enum: ['public', 'friends', 'private'],
-    default: 'public'
-  },
-  tags: [String],
   photos: [{
     url: String,
     caption: String,
@@ -142,10 +209,19 @@ const runSessionSchema = new mongoose.Schema({
       type: Date,
       default: Date.now
     }
-  }]
+  }],
+  privacy: {
+    type: String,
+    enum: ['public', 'friends', 'private'],
+    default: 'public'
+  },
+  tags: [String]
 }, {
   timestamps: true
 });
+
+// Index for geospatial queries on checkpoints
+runSessionSchema.index({ 'checkpoints.location': '2dsphere' });
 
 // Indexes for better query performance
 runSessionSchema.index({ user: 1, startTime: -1 });

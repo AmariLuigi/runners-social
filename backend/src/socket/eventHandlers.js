@@ -23,18 +23,16 @@ class SocketEventHandlers {
 
     // Handle live run updates
     socket.on('startRun', async (data) => {
-      const { userId, runSessionId } = data;
-      await this.handleStartRun(socket, userId, runSessionId);
+      const userId = await this.getUserIdBySocket(socket.id);
+      await this.handleStartRun(socket, userId, data.runSessionId);
     });
 
     socket.on('updateLocation', async (data) => {
-      const { runSessionId, location, pace, distance } = data;
-      await this.handleLocationUpdate(socket, runSessionId, location, pace, distance);
+      await this.handleLocationUpdate(socket, data.runSessionId, data.location, data.pace, data.distance);
     });
 
     socket.on('endRun', async (data) => {
-      const { runSessionId, finalStats } = data;
-      await this.handleEndRun(socket, runSessionId, finalStats);
+      await this.handleEndRun(socket, data.runSessionId, data.finalStats);
     });
 
     // Handle friend activity
@@ -131,6 +129,15 @@ class SocketEventHandlers {
     });
 
     // Handle chat messages in run session
+    socket.on('sendMessage', async (data) => {
+      await this.handleChatMessage(socket, data.runSessionId, data.message);
+    });
+
+    socket.on('checkpointReached', async (data) => {
+      await this.handleCheckpointReached(socket, data.runSessionId, data.checkpointId, data.location);
+    });
+
+    // Handle chat messages in run session
     socket.on('send_message', async (data) => {
       const { runId, message, sender } = data;
       
@@ -170,54 +177,107 @@ class SocketEventHandlers {
   async handleStartRun(socket, userId, runSessionId) {
     try {
       const runSession = await RunSession.findById(runSessionId)
-        .populate('participants', 'username');
-      
+        .populate('participants.user', 'username');
+
       if (!runSession) {
-        socket.emit('error', { message: 'Run session not found' });
-        return;
+        throw new Error('Run session not found');
       }
+
+      if (!runSession.participants.some(p => p.user._id.toString() === userId)) {
+        throw new Error('User not authorized for this run session');
+      }
+
+      // Update run session status
+      runSession.status = 'active';
+      runSession.startTime = new Date();
+      await runSession.save();
 
       this.activeRuns.set(runSessionId, {
         startTime: new Date(),
-        participants: runSession.participants.map(p => p._id.toString())
+        participants: runSession.participants.map(p => ({
+          userId: p.user._id.toString(),
+          username: p.user.username,
+          role: p.role,
+          lastLocation: null,
+          distance: 0,
+          pace: 0
+        }))
+      });
+
+      // Notify all participants about run start
+      const roomName = `run:${runSessionId}`;
+      runSession.participants.forEach(participant => {
+        const participantSocket = this.userSockets.get(participant.user._id.toString());
+        if (participantSocket) {
+          this.io.sockets.sockets.get(participantSocket).join(roomName);
+        }
+      });
+
+      this.io.to(roomName).emit('runStarted', {
+        runSessionId,
+        startTime: new Date(),
+        participants: this.activeRuns.get(runSessionId).participants
       });
 
       // Notify friends about run start
-      this.broadcastToFriends(userId, 'friendStartedRun', {
-        username: runSession.participants.find(p => p._id.toString() === userId).username,
-        runSessionId
-      });
-
-      socket.join(`run:${runSessionId}`);
-      this.io.to(`run:${runSessionId}`).emit('runStarted', {
-        runSessionId,
-        startTime: new Date()
+      runSession.participants.forEach(participant => {
+        this.broadcastToFriends(participant.user._id.toString(), 'friendStartedRun', {
+          username: participant.user.username,
+          runSessionId,
+          isGroupRun: runSession.type === 'group'
+        });
       });
     } catch (error) {
-      socket.emit('error', { message: 'Failed to start run session' });
+      console.error('Error starting run:', error);
+      socket.emit('error', { message: error.message || 'Failed to start run session' });
     }
   }
 
   async handleLocationUpdate(socket, runSessionId, location, pace, distance) {
-    if (!this.activeRuns.has(runSessionId)) return;
+    try {
+      const activeRun = this.activeRuns.get(runSessionId);
+      if (!activeRun) return;
 
-    const runData = {
-      location,
-      pace,
-      distance,
-      timestamp: new Date()
-    };
+      const userId = await this.getUserIdBySocket(socket.id);
+      const participant = activeRun.participants.find(p => p.userId === userId);
+      
+      if (!participant) return;
 
-    this.io.to(`run:${runSessionId}`).emit('locationUpdate', runData);
-    
-    // Update run session in database
-    await RunSession.findByIdAndUpdate(runSessionId, {
-      $push: { 
-        locationHistory: location,
-        paceHistory: pace
-      },
-      currentDistance: distance
-    });
+      // Update participant's stats
+      participant.lastLocation = location;
+      participant.distance = distance;
+      participant.pace = pace;
+
+      // Broadcast to all participants in the run
+      this.io.to(`run:${runSessionId}`).emit('locationUpdate', {
+        runSessionId,
+        participant: {
+          userId,
+          username: participant.username,
+          location,
+          pace,
+          distance
+        }
+      });
+
+      // Update run session in database
+      await RunSession.findByIdAndUpdate(runSessionId, {
+        $push: {
+          [`locationHistory.${userId}`]: {
+            coordinates: location,
+            timestamp: new Date()
+          },
+          [`paceHistory.${userId}`]: {
+            pace,
+            timestamp: new Date()
+          }
+        },
+        [`currentDistance.${userId}`]: distance
+      });
+    } catch (error) {
+      console.error('Error updating location:', error);
+      socket.emit('error', { message: 'Failed to update location' });
+    }
   }
 
   async handleEndRun(socket, runSessionId, finalStats) {
@@ -245,6 +305,121 @@ class SocketEventHandlers {
 
     this.activeRuns.delete(runSessionId);
     socket.leave(`run:${runSessionId}`);
+  }
+
+  async handleChatMessage(socket, runSessionId, message) {
+    try {
+      const userId = await this.getUserIdBySocket(socket.id);
+      const runSession = await RunSession.findById(runSessionId)
+        .populate('participants.user', 'username profileImage');
+
+      if (!runSession || !runSession.participants.some(p => p.user._id.toString() === userId)) {
+        throw new Error('Not authorized to send messages in this run');
+      }
+
+      const sender = runSession.participants.find(p => p.user._id.toString() === userId).user;
+      const chatMessage = {
+        sender: sender._id,
+        content: message,
+        timestamp: new Date(),
+        type: 'text'
+      };
+
+      // Save message to database
+      runSession.chat.push(chatMessage);
+      await runSession.save();
+
+      // Broadcast message to all participants
+      this.io.to(`run:${runSessionId}`).emit('chatMessage', {
+        ...chatMessage,
+        sender: {
+          _id: sender._id,
+          username: sender.username,
+          profileImage: sender.profileImage
+        }
+      });
+    } catch (error) {
+      console.error('Error sending message:', error);
+      socket.emit('error', { message: 'Failed to send message' });
+    }
+  }
+
+  async handleCheckpointReached(socket, runSessionId, checkpointId, userLocation) {
+    try {
+      const userId = await this.getUserIdBySocket(socket.id);
+      const runSession = await RunSession.findById(runSessionId);
+
+      if (!runSession || !runSession.participants.some(p => p.user.toString() === userId)) {
+        throw new Error('Not authorized for this run');
+      }
+
+      const checkpoint = runSession.checkpoints.id(checkpointId);
+      if (!checkpoint) {
+        throw new Error('Checkpoint not found');
+      }
+
+      // Calculate distance between user and checkpoint
+      const distance = this.calculateDistance(
+        userLocation,
+        checkpoint.location.coordinates
+      );
+
+      // Check if user is within checkpoint radius
+      if (distance <= checkpoint.radius) {
+        // Update checkpoint progress
+        if (!checkpoint.participantProgress.some(p => p.user.toString() === userId)) {
+          checkpoint.participantProgress.push({
+            user: userId,
+            reachedAt: new Date()
+          });
+
+          await runSession.save();
+
+          // Notify all participants
+          const message = {
+            sender: userId,
+            content: `Checkpoint ${checkpoint.name} reached!`,
+            timestamp: new Date(),
+            type: 'system'
+          };
+
+          runSession.chat.push(message);
+          await runSession.save();
+
+          this.io.to(`run:${runSessionId}`).emit('checkpointUpdate', {
+            checkpointId,
+            userId,
+            checkpoint: checkpoint.toObject()
+          });
+
+          this.io.to(`run:${runSessionId}`).emit('chatMessage', {
+            ...message,
+            sender: {
+              _id: userId,
+              username: runSession.participants.find(p => p.user.toString() === userId).user.username
+            }
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error handling checkpoint:', error);
+      socket.emit('error', { message: 'Failed to process checkpoint' });
+    }
+  }
+
+  calculateDistance(point1, point2) {
+    const R = 6371e3; // Earth's radius in meters
+    const φ1 = point1[1] * Math.PI / 180;
+    const φ2 = point2[1] * Math.PI / 180;
+    const Δφ = (point2[1] - point1[1]) * Math.PI / 180;
+    const Δλ = (point2[0] - point1[0]) * Math.PI / 180;
+
+    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ/2) * Math.sin(Δλ/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+    return R * c; // Distance in meters
   }
 
   async broadcastUserStatus(userId, isOnline) {
