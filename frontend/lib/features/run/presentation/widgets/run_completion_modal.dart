@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lottie/lottie.dart';
 import 'package:auto_route/auto_route.dart';
 
 class RunCompletionModal extends StatelessWidget {
@@ -13,21 +14,6 @@ class RunCompletionModal extends StatelessWidget {
     required this.averagePace,
   }) : super(key: key);
 
-  String _formatDuration(Duration duration) {
-    String twoDigits(int n) => n.toString().padLeft(2, '0');
-    final hours = twoDigits(duration.inHours);
-    final minutes = twoDigits(duration.inMinutes.remainder(60));
-    final seconds = twoDigits(duration.inSeconds.remainder(60));
-    return '$hours:$minutes:$seconds';
-  }
-
-  String _formatPace(double pace) {
-    if (pace.isInfinite || pace.isNaN) return '0:00';
-    final minutes = pace.floor();
-    final seconds = ((pace - minutes) * 60).floor();
-    return '$minutes:${seconds.toString().padLeft(2, '0')}';
-  }
-
   @override
   Widget build(BuildContext context) {
     return Dialog(
@@ -35,7 +21,7 @@ class RunCompletionModal extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -47,12 +33,35 @@ class RunCompletionModal extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-            _buildStatRow('Distance', '${(distance / 1000).toStringAsFixed(2)} km'),
-            _buildStatRow('Duration', _formatDuration(duration)),
-            _buildStatRow('Average Pace', '${_formatPace(averagePace)}/km'),
+            Lottie.network(
+              'https://assets9.lottiefiles.com/packages/lf20_rc5d0f61.json',
+              height: 150,
+              repeat: true,
+            ),
+            const SizedBox(height: 24),
+            _buildStatRow(
+              Icons.directions_run,
+              'Distance',
+              '${(distance / 1000).toStringAsFixed(2)} km',
+            ),
+            const SizedBox(height: 16),
+            _buildStatRow(
+              Icons.timer,
+              'Duration',
+              _formatDuration(duration),
+            ),
+            const SizedBox(height: 16),
+            _buildStatRow(
+              Icons.speed,
+              'Average Pace',
+              '${averagePace.toStringAsFixed(2)} min/km',
+            ),
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: () => context.router.pop(),
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 48),
+              ),
               child: const Text('Close'),
             ),
           ],
@@ -61,28 +70,39 @@ class RunCompletionModal extends StatelessWidget {
     );
   }
 
-  Widget _buildStatRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
+  Widget _buildStatRow(IconData icon, String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Row(
+          children: [
+            Icon(icon, color: Colors.blue),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
             ),
+          ],
+        ),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
           ),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
+  }
+
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final hours = twoDigits(duration.inHours);
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    return '$hours:$minutes:$seconds';
   }
 }

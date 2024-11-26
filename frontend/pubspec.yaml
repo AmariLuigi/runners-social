@@ -10,7 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-  auto_route: ^7.9.0
+  auto_route: ^7.8.4
   dio: ^5.7.0
   flutter_riverpod: ^2.4.9
   riverpod: ^2.4.9
@@ -26,6 +26,7 @@ dependencies:
   flutter_bloc: ^8.1.6
   get_it: ^8.0.2
   json_annotation: ^4.9.0
+  lottie: ^2.7.0
 
 dev_dependencies:
   flutter_test:
