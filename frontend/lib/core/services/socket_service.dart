@@ -6,6 +6,7 @@ class SocketService {
   IO.Socket? _socket;
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
   bool _isAuthenticated = false;
+  bool _isEndingRun = false;
 
   IO.Socket get socket {
     if (_socket == null) {
@@ -113,14 +114,33 @@ class SocketService {
     });
   }
 
-  void endRun(String runId, String userId) async {
-    final isConnected = await _ensureAuthenticated();
-    if (!isConnected) return;
-    
-    socket.emit('endRun', {
-      'runSessionId': runId,
-      'userId': userId,
-    });
+  Future<void> endRun(String runId, String userId, [Map<String, dynamic>? stats]) async {
+    if (_isEndingRun) {
+      print('Run end already in progress');
+      return;
+    }
+
+    try {
+      _isEndingRun = true;
+      print('Ending run: $runId for user: $userId with stats: $stats');
+
+      final isAuth = await _ensureAuthenticated();
+      if (!isAuth) {
+        print('Failed to authenticate socket for ending run');
+        return;
+      }
+      
+      socket.emit('endRun', {
+        'runSessionId': runId,
+        'userId': userId,
+        'finalStats': stats,
+      });
+
+      // Wait for server acknowledgment
+      await Future.delayed(const Duration(seconds: 2));
+    } finally {
+      _isEndingRun = false;
+    }
   }
 
   void onRunStarted(Function(Map<String, dynamic>) callback) {

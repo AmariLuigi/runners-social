@@ -2,14 +2,15 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:auto_route/auto_route.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:auto_route/auto_route.dart';
-import '../../../../core/services/socket_service.dart';
-import '../../data/models/run_session.dart';
-import '../providers/run_provider.dart';
 import 'package:get_it/get_it.dart';
-import '../../../../core/services/user_service.dart';
+import 'package:runners_social/core/services/socket_service.dart';
+import 'package:runners_social/core/services/user_service.dart';
+import 'package:runners_social/features/run/data/models/run_session.dart';
+import 'package:runners_social/features/run/presentation/widgets/run_completion_modal.dart';
+import '../providers/run_provider.dart';
 
 class ActiveRunScreen extends ConsumerStatefulWidget {
   final String runId;
@@ -173,22 +174,24 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
     for (final participant in _currentRun!.participants) {
       final markerId = MarkerId('participant_${participant.user.id}');
       final participantMetrics = _currentRun!.metrics.firstWhere(
-        (m) => m['userId'] == participant.user.id,
-        orElse: () => {'location': null, 'distance': 0.0},
+        (m) => m.userId == participant.user.id,
+        orElse: () => RunMetrics(
+          userId: participant.user.id,
+          distance: 0,
+        ),
       );
 
-      if (participantMetrics['location'] != null) {
-        final location = participantMetrics['location'];
+      if (participantMetrics.location != null) {
         _markers.add(
           Marker(
             markerId: markerId,
             position: LatLng(
-              location['latitude'],
-              location['longitude'],
+              participantMetrics.location!.latitude,
+              participantMetrics.location!.longitude,
             ),
             infoWindow: InfoWindow(
               title: participant.user.username,
-              snippet: 'Distance: ${participantMetrics['distance'].toStringAsFixed(2)}km',
+              snippet: 'Distance: ${(participantMetrics.distance / 1000).toStringAsFixed(2)}km',
             ),
             icon: BitmapDescriptor.defaultMarkerWithHue(
               participant.role == 'host' ? BitmapDescriptor.hueBlue : BitmapDescriptor.hueRed,
@@ -274,14 +277,40 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
   void _endRun() {
     if (_currentRun == null) return;
     
+    // Calculate final stats
+    final stats = {
+      'distance': _distance,
+      'averagePace': _calculateAveragePace(),
+      'totalTime': _duration.inSeconds,
+    };
+    
     _socketService.endRun(
       widget.runId,
       _userService.currentUserId ?? '',
+      stats,
     );
     
+    // Show completion modal
     if (mounted) {
-      context.router.pop();
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => RunCompletionModal(
+          distance: _distance / 1000, // Convert meters to kilometers
+          duration: _duration,
+          averagePace: _calculateAveragePace(),
+        ),
+      ).then((_) {
+        // Navigate back after modal is closed
+        context.router.pop();
+      });
     }
+  }
+
+  double _calculateAveragePace() {
+    if (_distance == 0) return 0;
+    // Convert distance to kilometers and calculate minutes per kilometer
+    return (_duration.inMinutes / (_distance / 1000));
   }
 
   double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {

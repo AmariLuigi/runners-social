@@ -430,30 +430,118 @@ class SocketEventHandlers {
   }
 
   async handleEndRun(socket, runSessionId, finalStats) {
-    if (!this.activeRuns.has(runSessionId)) return;
+    try {
+      console.log('Handling end run:', { runSessionId, finalStats });
 
-    const runSession = await RunSession.findByIdAndUpdate(runSessionId, {
-      isActive: false,
-      endTime: new Date(),
-      finalDistance: finalStats.distance,
-      averagePace: finalStats.averagePace,
-      totalTime: finalStats.totalTime
-    }, { new: true });
+      // Check if run exists and is active
+      const runSession = await RunSession.findById(runSessionId);
+      if (!runSession) {
+        console.log('Run session not found:', runSessionId);
+        socket.emit('error', { message: 'Run session not found' });
+        return;
+      }
 
-    this.io.to(`run:${runSessionId}`).emit('runEnded', {
-      runSessionId,
-      finalStats
-    });
+      if (!runSession.isActive) {
+        console.log('Run session already ended:', runSessionId);
+        socket.emit('error', { message: 'Run already ended' });
+        return;
+      }
 
-    // Notify friends about run completion
-    const userId = runSession.participants[0].toString();
-    this.broadcastToFriends(userId, 'friendCompletedRun', {
-      runSessionId,
-      stats: finalStats
-    });
+      // Ensure finalStats has default values if undefined
+      const stats = {
+        distance: finalStats?.distance || 0,
+        averagePace: finalStats?.averagePace || 0,
+        totalTime: finalStats?.totalTime || 0
+      };
 
-    this.activeRuns.delete(runSessionId);
-    socket.leave(`run:${runSessionId}`);
+      console.log('Updating run session with stats:', stats);
+
+      // Update run session
+      const updatedSession = await RunSession.findByIdAndUpdate(
+        runSessionId,
+        {
+          isActive: false,
+          endTime: new Date(),
+          finalDistance: stats.distance,
+          averagePace: stats.averagePace,
+          totalTime: stats.totalTime
+        },
+        { new: true }
+      );
+
+      if (!updatedSession) {
+        console.log('Failed to update run session:', runSessionId);
+        socket.emit('error', { message: 'Failed to update run session' });
+        return;
+      }
+
+      // Get the host user's ID (first participant)
+      const participant = updatedSession.participants[0];
+      const userId = participant?.user?.toString() || participant?.toString();
+
+      console.log('Extracted userId:', userId);
+
+      if (userId) {
+        try {
+          // Notify friends about run completion
+          await this.broadcastToFriends(userId, 'friendCompletedRun', {
+            runSessionId,
+            userId,
+            stats
+          });
+
+          console.log('Updating user stats for:', userId);
+
+          // Update user stats
+          await User.findByIdAndUpdate(
+            userId,
+            {
+              $inc: {
+                'stats.totalRuns': 1,
+                'stats.totalDistance': stats.distance,
+                'stats.totalDuration': stats.totalTime
+              }
+            },
+            { new: true }
+          );
+
+          // Update achievements
+          await updateAchievements(userId, {
+            distance: stats.distance,
+            duration: stats.totalTime
+          });
+
+          // Update analytics
+          await updateAnalytics('runCompleted', {
+            userId,
+            distance: stats.distance,
+            duration: stats.totalTime,
+            pace: stats.averagePace
+          });
+        } catch (innerError) {
+          console.error('Error updating user data:', innerError);
+          // Continue with cleanup even if user updates fail
+        }
+      } else {
+        console.log('No valid userId found in run session');
+      }
+
+      // Emit success event
+      this.io.to(`run:${runSessionId}`).emit('runEnded', {
+        runSessionId,
+        finalStats: stats,
+        success: true
+      });
+
+      // Clean up
+      this.activeRuns.delete(runSessionId);
+      socket.leave(`run:${runSessionId}`);
+      console.log('Run ended successfully:', runSessionId);
+
+    } catch (error) {
+      console.error('Error ending run:', error);
+      socket.emit('error', { message: 'Failed to end run' });
+    }
   }
 
   async handleChatMessage(socket, runSessionId, message) {
