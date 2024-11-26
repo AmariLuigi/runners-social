@@ -3,28 +3,104 @@ const User = require('../models/user');
 const Friend = require('../models/friend');
 const { updateAchievements } = require('../services/achievementService');
 const { updateAnalytics } = require('../services/analyticsService');
+const jwt = require('jsonwebtoken');
+const { JWT_SECRET } = require('../middleware/auth');
 
 class SocketEventHandlers {
   constructor(io) {
     this.io = io;
     this.activeRuns = new Map(); // Store active run sessions
     this.userSockets = new Map(); // Map user IDs to socket IDs
+
+    // Add middleware for socket authentication
+    io.use(async (socket, next) => {
+      try {
+        console.log('Socket auth middleware - auth:', socket.handshake.auth);
+        console.log('Socket auth middleware - headers:', socket.handshake.headers);
+
+        const token = socket.handshake.auth.token || socket.handshake.headers.authorization;
+        if (!token) {
+          console.log('No token provided in socket connection');
+          return next(new Error('Authentication token required'));
+        }
+
+        console.log('Received token:', token.substring(0, 20) + '...');
+        console.log('Using JWT_SECRET:', JWT_SECRET);
+
+        try {
+          const decoded = jwt.verify(token, JWT_SECRET);
+          if (!decoded || !decoded.userId) {
+            console.log('Invalid token payload:', decoded);
+            return next(new Error('Invalid token'));
+          }
+
+          socket.userId = decoded.userId;
+          this.userSockets.set(decoded.userId, socket.id);
+          console.log('Socket authenticated successfully:', {
+            socketId: socket.id,
+            userId: decoded.userId
+          });
+          next();
+        } catch (jwtError) {
+          console.error('JWT verification failed:', jwtError);
+          return next(new Error('Invalid token'));
+        }
+      } catch (error) {
+        console.error('Socket authentication error:', error);
+        next(new Error('Authentication failed'));
+      }
+    });
   }
 
   // Handle new socket connections
   handleConnection(socket) {
-    console.log('New client connected:', socket.id);
+    console.log('New client connected:', {
+      socketId: socket.id,
+      userId: socket.userId
+    });
 
     // Associate user with socket
-    socket.on('authenticate', async (userId) => {
-      this.userSockets.set(userId, socket.id);
-      await this.broadcastUserStatus(userId, true);
-    });
+    // socket.on('authenticate', async (userId) => {
+    //   console.log('Socket authentication received for userId:', userId);
+    //   if (!userId) {
+    //     socket.emit('error', { message: 'Authentication failed: userId is required' });
+    //     return;
+    //   }
+      
+    //   // Store both ways for redundancy
+    //   this.userSockets.set(userId, socket.id);
+    //   socket.userId = userId; // Store userId in socket for direct access
+      
+    //   console.log('Socket authenticated:', {
+    //     socketId: socket.id,
+    //     userId: userId,
+    //     mappedSocketId: this.userSockets.get(userId)
+    //   });
+      
+    //   await this.broadcastUserStatus(userId, true);
+    //   socket.emit('authenticated', { userId });
+    // });
 
     // Handle live run updates
     socket.on('startRun', async (data) => {
-      const userId = await this.getUserIdBySocket(socket.id);
-      await this.handleStartRun(socket, userId, data.runSessionId);
+      try {
+        console.log('StartRun event received:', {
+          socketId: socket.id,
+          userId: socket.userId,
+          data: data
+        });
+
+        if (!socket.userId) {
+          console.log('Unauthenticated startRun attempt');
+          socket.emit('error', { message: 'Authentication required before starting a run' });
+          return;
+        }
+
+        await this.handleStartRun(socket, socket.userId, data.runSessionId);
+      } catch (error) {
+        console.error('Error in startRun event:', error);
+        socket.emit('error', { message: error.message || 'Failed to start run' });
+      }
     });
 
     socket.on('updateLocation', async (data) => {
@@ -163,12 +239,15 @@ class SocketEventHandlers {
       }
     });
 
-    // Cleanup on disconnect
     socket.on('disconnect', async () => {
-      const userId = this.getUserIdBySocket(socket.id);
-      if (userId) {
-        await this.broadcastUserStatus(userId, false);
-        this.userSockets.delete(userId);
+      console.log('Client disconnected:', {
+        socketId: socket.id,
+        userId: socket.userId
+      });
+      
+      if (socket.userId) {
+        await this.broadcastUserStatus(socket.userId, false);
+        this.userSockets.delete(socket.userId);
       }
     });
   }
@@ -176,14 +255,55 @@ class SocketEventHandlers {
   // Helper methods
   async handleStartRun(socket, userId, runSessionId) {
     try {
+      console.log('Starting run with userId:', userId, 'runSessionId:', runSessionId);
+      
+      if (!userId || !runSessionId) {
+        throw new Error('Missing required parameters: userId and runSessionId are required');
+      }
+
       const runSession = await RunSession.findById(runSessionId)
-        .populate('participants.user', 'username');
+        .populate('user', 'username profileImage')
+        .populate('participants.user', 'username profileImage');
 
       if (!runSession) {
         throw new Error('Run session not found');
       }
 
-      if (!runSession.participants.some(p => p.user._id.toString() === userId)) {
+      console.log('Run session found:', {
+        id: runSession._id,
+        status: runSession.status,
+        participantCount: runSession.participants.length
+      });
+
+      // Safely check if user is a participant
+      let isParticipant = false;
+      if (runSession.participants && Array.isArray(runSession.participants)) {
+        for (const participant of runSession.participants) {
+          if (!participant) continue;
+          
+          // Get the user ID, handling both populated and unpopulated cases
+          let participantUserId = null;
+          if (participant.user) {
+            if (participant.user._id) {
+              participantUserId = participant.user._id.toString();
+            } else if (typeof participant.user === 'string' || participant.user instanceof mongoose.Types.ObjectId) {
+              participantUserId = participant.user.toString();
+            }
+          }
+
+          console.log('Comparing participant:', {
+            participantUserId,
+            userId: userId.toString()
+          });
+
+          if (participantUserId === userId.toString()) {
+            isParticipant = true;
+            break;
+          }
+        }
+      }
+
+      if (!isParticipant) {
         throw new Error('User not authorized for this run session');
       }
 
@@ -192,26 +312,49 @@ class SocketEventHandlers {
       runSession.startTime = new Date();
       await runSession.save();
 
+      // Safely map participants
+      const mappedParticipants = [];
+      if (runSession.participants && Array.isArray(runSession.participants)) {
+        for (const participant of runSession.participants) {
+          if (!participant) continue;
+
+          let participantData = {
+            userId: null,
+            username: 'Unknown',
+            role: participant.role || 'participant',
+            lastLocation: null,
+            distance: 0,
+            pace: 0
+          };
+
+          if (participant.user) {
+            if (participant.user._id) {
+              participantData.userId = participant.user._id.toString();
+              participantData.username = participant.user.username || 'Unknown';
+            } else if (typeof participant.user === 'string' || participant.user instanceof mongoose.Types.ObjectId) {
+              participantData.userId = participant.user.toString();
+            }
+          }
+
+          if (participantData.userId) {
+            mappedParticipants.push(participantData);
+          }
+        }
+      }
+
       this.activeRuns.set(runSessionId, {
         startTime: new Date(),
-        participants: runSession.participants.map(p => ({
-          userId: p.user._id.toString(),
-          username: p.user.username,
-          role: p.role,
-          lastLocation: null,
-          distance: 0,
-          pace: 0
-        }))
+        participants: mappedParticipants
       });
 
       // Notify all participants about run start
       const roomName = `run:${runSessionId}`;
-      runSession.participants.forEach(participant => {
+      for (const participant of runSession.participants) {
         const participantSocket = this.userSockets.get(participant.user._id.toString());
         if (participantSocket) {
           this.io.sockets.sockets.get(participantSocket).join(roomName);
         }
-      });
+      }
 
       this.io.to(roomName).emit('runStarted', {
         runSessionId,
@@ -220,13 +363,13 @@ class SocketEventHandlers {
       });
 
       // Notify friends about run start
-      runSession.participants.forEach(participant => {
+      for (const participant of runSession.participants) {
         this.broadcastToFriends(participant.user._id.toString(), 'friendStartedRun', {
           username: participant.user.username,
           runSessionId,
           isGroupRun: runSession.type === 'group'
         });
-      });
+      }
     } catch (error) {
       console.error('Error starting run:', error);
       socket.emit('error', { message: error.message || 'Failed to start run session' });
@@ -239,7 +382,13 @@ class SocketEventHandlers {
       if (!activeRun) return;
 
       const userId = await this.getUserIdBySocket(socket.id);
-      const participant = activeRun.participants.find(p => p.userId === userId);
+      let participant;
+      for (const p of activeRun.participants) {
+        if (p.userId === userId) {
+          participant = p;
+          break;
+        }
+      }
       
       if (!participant) return;
 
@@ -367,39 +516,48 @@ class SocketEventHandlers {
       // Check if user is within checkpoint radius
       if (distance <= checkpoint.radius) {
         // Update checkpoint progress
-        if (!checkpoint.participantProgress.some(p => p.user.toString() === userId)) {
+        let participantProgressUpdated = false;
+        for (const participantProgress of checkpoint.participantProgress) {
+          if (participantProgress.user.toString() === userId) {
+            participantProgress.reachedAt = new Date();
+            participantProgressUpdated = true;
+            break;
+          }
+        }
+
+        if (!participantProgressUpdated) {
           checkpoint.participantProgress.push({
             user: userId,
             reachedAt: new Date()
           });
-
-          await runSession.save();
-
-          // Notify all participants
-          const message = {
-            sender: userId,
-            content: `Checkpoint ${checkpoint.name} reached!`,
-            timestamp: new Date(),
-            type: 'system'
-          };
-
-          runSession.chat.push(message);
-          await runSession.save();
-
-          this.io.to(`run:${runSessionId}`).emit('checkpointUpdate', {
-            checkpointId,
-            userId,
-            checkpoint: checkpoint.toObject()
-          });
-
-          this.io.to(`run:${runSessionId}`).emit('chatMessage', {
-            ...message,
-            sender: {
-              _id: userId,
-              username: runSession.participants.find(p => p.user.toString() === userId).user.username
-            }
-          });
         }
+
+        await runSession.save();
+
+        // Notify all participants
+        const message = {
+          sender: userId,
+          content: `Checkpoint ${checkpoint.name} reached!`,
+          timestamp: new Date(),
+          type: 'system'
+        };
+
+        runSession.chat.push(message);
+        await runSession.save();
+
+        this.io.to(`run:${runSessionId}`).emit('checkpointUpdate', {
+          checkpointId,
+          userId,
+          checkpoint: checkpoint.toObject()
+        });
+
+        this.io.to(`run:${runSessionId}`).emit('chatMessage', {
+          ...message,
+          sender: {
+            _id: userId,
+            username: runSession.participants.find(p => p.user.toString() === userId).user.username
+          }
+        });
       }
     } catch (error) {
       console.error('Error handling checkpoint:', error);
@@ -431,7 +589,7 @@ class SocketEventHandlers {
       status: 'accepted'
     });
 
-    friends.forEach(friend => {
+    for (const friend of friends) {
       const friendId = friend.user1.toString() === userId ? 
         friend.user2.toString() : friend.user1.toString();
       
@@ -443,7 +601,7 @@ class SocketEventHandlers {
           isOnline
         });
       }
-    });
+    }
   }
 
   async broadcastToFriends(userId, event, data) {
