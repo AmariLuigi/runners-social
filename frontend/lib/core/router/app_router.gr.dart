@@ -18,7 +18,7 @@ abstract class _$AppRouter extends RootStackRouter {
     FeedRoute.name: (routeData) {
       return AutoRoutePage<dynamic>(
         routeData: routeData,
-        child: const FeedPage(),
+        child: const FeedScreen(),
       );
     },
     ForgotPasswordRoute.name: (routeData) {
@@ -30,7 +30,7 @@ abstract class _$AppRouter extends RootStackRouter {
     HomeRoute.name: (routeData) {
       return AutoRoutePage<dynamic>(
         routeData: routeData,
-        child: const HomePage(),
+        child: const HomeScreen(),
       );
     },
     LoginRoute.name: (routeData) {
@@ -42,7 +42,7 @@ abstract class _$AppRouter extends RootStackRouter {
     ProfileRoute.name: (routeData) {
       return AutoRoutePage<dynamic>(
         routeData: routeData,
-        child: const ProfilePage(),
+        child: const ProfileScreen(),
       );
     },
     RegisterRoute.name: (routeData) {
@@ -54,14 +54,14 @@ abstract class _$AppRouter extends RootStackRouter {
     RunRoute.name: (routeData) {
       return AutoRoutePage<dynamic>(
         routeData: routeData,
-        child: const RunPage(),
+        child: const RunScreen(),
       );
     },
   };
 }
 
 /// generated route for
-/// [FeedPage]
+/// [FeedScreen]
 class FeedRoute extends PageRouteInfo<void> {
   const FeedRoute({List<PageRouteInfo>? children})
       : super(
@@ -89,7 +89,7 @@ class ForgotPasswordRoute extends PageRouteInfo<void> {
 }
 
 /// generated route for
-/// [HomePage]
+/// [HomeScreen]
 class HomeRoute extends PageRouteInfo<void> {
   const HomeRoute({List<PageRouteInfo>? children})
       : super(
@@ -117,7 +117,7 @@ class LoginRoute extends PageRouteInfo<void> {
 }
 
 /// generated route for
-/// [ProfilePage]
+/// [ProfileScreen]
 class ProfileRoute extends PageRouteInfo<void> {
   const ProfileRoute({List<PageRouteInfo>? children})
       : super(
@@ -145,7 +145,7 @@ class RegisterRoute extends PageRouteInfo<void> {
 }
 
 /// generated route for
-/// [RunPage]
+/// [RunScreen]
 class RunRoute extends PageRouteInfo<void> {
   const RunRoute({List<PageRouteInfo>? children})
       : super(

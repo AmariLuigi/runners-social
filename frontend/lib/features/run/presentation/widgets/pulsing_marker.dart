@@ -21,23 +21,50 @@ class PulsingMarkerOverlay extends StatefulWidget {
 class _PulsingMarkerOverlayState extends State<PulsingMarkerOverlay>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<double> _animation;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _opacityAnimation;
+  late Animation<double> _pulseAnimation;
   Offset _screenPosition = Offset.zero;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 2000),
       vsync: this,
     );
 
-    _animation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeInOut,
+    _scaleAnimation = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.0, end: 1.2)
+            .chain(CurveTween(curve: Curves.easeOutQuad)),
+        weight: 1,
       ),
-    );
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.2, end: 1.0)
+            .chain(CurveTween(curve: Curves.elasticOut)),
+        weight: 1,
+      ),
+    ]).animate(_controller);
+
+    _opacityAnimation = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 0.8, end: 0.2),
+        weight: 1,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 0.2, end: 0.8),
+        weight: 1,
+      ),
+    ]).animate(_controller);
+
+    _pulseAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOutQuad,
+    ));
 
     _controller.repeat();
     _updatePosition();
@@ -77,7 +104,7 @@ class _PulsingMarkerOverlayState extends State<PulsingMarkerOverlay>
       left: _screenPosition.dx - 30,
       top: _screenPosition.dy - 30,
       child: AnimatedBuilder(
-        animation: _animation,
+        animation: _pulseAnimation,
         builder: (context, child) {
           return Transform.rotate(
             angle: widget.rotation * (pi / 180),
@@ -86,25 +113,25 @@ class _PulsingMarkerOverlayState extends State<PulsingMarkerOverlay>
               children: [
                 // Outer pulsing circle
                 Transform.scale(
-                  scale: 1.0 + (_animation.value * 0.3),
+                  scale: _scaleAnimation.value,
                   child: Container(
                     width: 60,
                     height: 60,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.blue.withOpacity(0.3 * (1 - _animation.value)),
+                      color: Colors.blue.withOpacity(_opacityAnimation.value),
                     ),
                   ),
                 ),
                 // Middle pulsing circle
                 Transform.scale(
-                  scale: 1.0 + (_animation.value * 0.2),
+                  scale: _scaleAnimation.value * 0.8,
                   child: Container(
                     width: 45,
                     height: 45,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.blue.withOpacity(0.4 * (1 - _animation.value)),
+                      color: Colors.blue.withOpacity(_opacityAnimation.value * 0.8),
                     ),
                   ),
                 ),

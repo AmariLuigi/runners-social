@@ -1,15 +1,11 @@
 import 'package:flutter/material.dart';
 
 class AnimatedLocationMarker extends StatefulWidget {
-  final Widget child;
-  final Widget? label;
   final Color color;
   final bool showWaves;
 
   const AnimatedLocationMarker({
     Key? key,
-    required this.child,
-    this.label,
     this.color = Colors.blue,
     this.showWaves = true,
   }) : super(key: key);
@@ -28,7 +24,7 @@ class _AnimatedLocationMarkerState extends State<AnimatedLocationMarker>
   void initState() {
     super.initState();
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 2000),
       vsync: this,
     );
 
@@ -120,15 +116,25 @@ class _AnimatedLocationMarkerState extends State<AnimatedLocationMarker>
               ],
               Transform.translate(
                 offset: Offset(0, _bounceAnimation.value),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    widget.child,
-                    if (widget.label != null) ...[
-                      const SizedBox(height: 4),
-                      widget.label!,
+                child: Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: widget.color,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: widget.color.withOpacity(0.4),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
                     ],
-                  ],
+                  ),
+                  child: const Icon(
+                    Icons.person,
+                    color: Colors.white,
+                    size: 16,
+                  ),
                 ),
               ),
             ],

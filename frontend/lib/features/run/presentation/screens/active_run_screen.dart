@@ -13,7 +13,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:runners_social/core/services/socket_service.dart';
 import 'package:runners_social/features/run/data/models/location_model.dart';
 import 'package:runners_social/features/run/data/models/participant.dart';
-import 'package:runners_social/features/run/presentation/widgets/run_completion_modal.dart';
+import 'package:runners_social/features/run/presentation/widgets/run_completion_modal_new.dart';
 import 'package:runners_social/features/run/presentation/widgets/animated_location_marker.dart';
 
 class ActiveRunScreen extends ConsumerStatefulWidget {
@@ -28,7 +28,7 @@ class ActiveRunScreen extends ConsumerStatefulWidget {
   ConsumerState<ActiveRunScreen> createState() => _ActiveRunScreenState();
 }
 
-class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> with SingleTickerProviderStateMixin {
+class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
   late final SocketService _socketService;
   final MapController _mapController = MapController();
   StreamSubscription<Position>? _locationSubscription;
@@ -45,24 +45,11 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> with SingleTi
   bool _isInitialized = false;
   Position? _currentPosition;
   bool _isFollowingUser = true;
-  late AnimationController _markerAnimationController;
-  late Animation<double> _markerAnimation;
 
   @override
   void initState() {
     super.initState();
     _socketService = GetIt.I<SocketService>();
-    _markerAnimationController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    );
-    _markerAnimation = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(
-        parent: _markerAnimationController,
-        curve: Curves.elasticOut,
-      ),
-    );
-    _markerAnimationController.repeat(reverse: true);
     _initialize();
   }
 
@@ -308,9 +295,13 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> with SingleTi
     if (_startTime != null) {
       final distance = _calculateTotalDistance();
       final duration = DateTime.now().difference(_startTime!);
-      final averagePace = duration.inMinutes / (distance / 1000);
+      final averagePace = distance > 0 
+          ? duration.inMinutes / (distance / 1000) 
+          : 0.0;
 
       await _socketService.endRun(widget.runId);
+
+      if (!mounted) return;
 
       await showDialog(
         context: context,
@@ -391,6 +382,7 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> with SingleTi
     try {
       if (_isRunning) {
         await _socketService.endRun(widget.runId);
+        await _handleRunEnd(); // Add this line to show the completion modal
       } else {
         await _socketService.startRun(widget.runId);
         setState(() {
@@ -465,6 +457,7 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> with SingleTi
         _isRunning = false;
       });
       await _socketService.endRun(widget.runId);
+      await _handleRunEnd();
     }
   }
 
@@ -637,7 +630,6 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> with SingleTi
 
   @override
   void dispose() {
-    _markerAnimationController.dispose();
     _disposed = true;
     for (final removeListener in _socketListeners) {
       removeListener();
