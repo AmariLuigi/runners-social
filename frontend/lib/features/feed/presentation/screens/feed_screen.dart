@@ -19,7 +19,7 @@ class FeedScreen extends StatelessWidget {
         feedRepository: FeedRepositoryImpl(
           client: http.Client(),
           storage: const FlutterSecureStorage(),
-          baseUrl: 'http://localhost:8080', // TODO: Get from config
+          baseUrl: 'http://localhost:3000', // Using consistent port with backend
         ),
       )..add(const LoadPostsEvent()),
       child: Scaffold(
