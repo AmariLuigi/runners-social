@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:auto_route/auto_route.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../bloc/feed_bloc.dart';
+import '../bloc/feed_event.dart';
+import '../bloc/feed_state.dart';
 import '../../data/repositories/feed_repository_impl.dart';
 import '../widgets/post_card.dart';
 import '../widgets/create_post_dialog.dart';
 
-@RoutePage()
 class FeedScreen extends StatelessWidget {
   const FeedScreen({super.key});
 
@@ -21,7 +21,7 @@ class FeedScreen extends StatelessWidget {
           storage: const FlutterSecureStorage(),
           baseUrl: 'http://localhost:8080', // TODO: Get from config
         ),
-      )..add(const FeedEvent.loadPosts()),
+      )..add(const LoadPostsEvent()),
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Feed'),
@@ -29,7 +29,7 @@ class FeedScreen extends StatelessWidget {
             IconButton(
               icon: const Icon(Icons.refresh),
               onPressed: () => context.read<FeedBloc>().add(
-                    const FeedEvent.refreshPosts(),
+                    const RefreshPostsEvent(),
                   ),
             ),
           ],
@@ -52,14 +52,14 @@ class FeedScreen extends StatelessWidget {
 
             return RefreshIndicator(
               onRefresh: () async {
-                context.read<FeedBloc>().add(const FeedEvent.refreshPosts());
+                context.read<FeedBloc>().add(const RefreshPostsEvent());
               },
               child: ListView.builder(
                 itemCount: state.posts.length + (state.hasMore ? 1 : 0),
                 itemBuilder: (context, index) {
                   if (index == state.posts.length) {
                     if (!state.isLoading) {
-                      context.read<FeedBloc>().add(const FeedEvent.loadPosts());
+                      context.read<FeedBloc>().add(const LoadPostsEvent());
                     }
                     return const Center(
                       child: Padding(
@@ -85,7 +85,7 @@ class FeedScreen extends StatelessWidget {
             if (result != null) {
               if (!context.mounted) return;
               context.read<FeedBloc>().add(
-                    FeedEvent.createPost(
+                    CreatePostEvent(
                       content: result.content,
                       images: result.images,
                       runData: result.runData,

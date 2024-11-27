@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../domain/models/post.dart';
+import '../../data/models/run_data.dart';
 
 class CreatePostResult {
   final String content;
@@ -166,16 +166,22 @@ class _CreatePostDialogState extends State<CreatePostDialog> {
 
   Future<void> _addRunData() async {
     // TODO: Implement run data picker
+    final now = DateTime.now();
     final duration = const Duration(minutes: 25);
-    final distance = 5000.0; // 5 km in meters
-    final averagePace = duration.inSeconds / (distance / 1000) / 60; // minutes per km
+    final distance = 5.0; // 5 km
+    final averagePace = duration.inSeconds / distance / 60; // minutes per km
     
     setState(() {
       _runData = RunData(
+        id: DateTime.now().millisecondsSinceEpoch.toString(), // Temporary ID
         distance: distance,
         duration: duration,
         averagePace: averagePace,
         route: const [],
+        startTime: now.subtract(duration),
+        endTime: now,
+        caloriesBurned: distance * 60, // Rough estimate: 60 calories per km
+        elevationGain: 0,
       );
     });
   }

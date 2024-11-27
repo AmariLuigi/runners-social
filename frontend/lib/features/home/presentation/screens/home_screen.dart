@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:auto_route/auto_route.dart';
 import 'package:runners_social/core/widgets/navigation_drawer.dart';
 
-@RoutePage()
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -20,16 +18,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
     switch (index) {
       case 0: // Home
-        context.router.pushNamed('/home');
+        Navigator.of(context).pushReplacementNamed('/home');
         break;
       case 1: // Runs
-        context.router.pushNamed('/run');
+        Navigator.of(context).pushReplacementNamed('/run');
         break;
       case 2: // Feed
-        context.router.pushNamed('/feed');
+        Navigator.of(context).pushReplacementNamed('/feed');
         break;
       case 3: // Profile
-        context.router.pushNamed('/profile');
+        Navigator.of(context).pushReplacementNamed('/profile');
         break;
       case 4: // Settings
         // TODO: Navigate to settings

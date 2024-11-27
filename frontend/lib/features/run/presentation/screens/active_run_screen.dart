@@ -3,7 +3,6 @@ import 'dart:math';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
-import 'package:auto_route/auto_route.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
@@ -285,35 +284,60 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
     });
   }
 
-  void _handleRunEnd() async {
-    if (!mounted) return;
-    
-    await _locationSubscription?.cancel();
-    _locationSubscription = null;
+  Future<void> _handleRunEnd() async {
+    _locationSubscription?.cancel();
     _timer?.cancel();
     
     if (_startTime != null) {
-      final distance = _calculateTotalDistance();
       final duration = DateTime.now().difference(_startTime!);
-      final averagePace = distance > 0 
-          ? duration.inMinutes / (distance / 1000) 
+      final averagePace = _distance > 0 
+          ? duration.inMinutes / (_distance / 1000) 
           : 0.0;
 
-      await _socketService.endRun(widget.runId);
+      if (mounted) {
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => RunCompletionModal(
+            distance: _distance,
+            duration: duration,
+            averagePace: averagePace,
+          ),
+        );
+      }
+    }
+  }
 
-      if (!mounted) return;
-
-      await showDialog(
+  Future<bool> _handleBackPress() async {
+    if (_isRunning) {
+      final shouldExit = await showDialog<bool>(
         context: context,
-        barrierDismissible: false,
-        builder: (context) => RunCompletionModal(
-          distance: distance,
-          duration: duration,
-          averagePace: averagePace,
+        builder: (context) => AlertDialog(
+          title: const Text('End Run?'),
+          content: const Text('Are you sure you want to end your run?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('End Run'),
+            ),
+          ],
         ),
       );
 
-      context.router.pop();
+      if (shouldExit == true) {
+        if (!mounted) return false;
+        await _handleRunEnd();
+        if (!mounted) return false;
+        Navigator.pop(context);
+        return true;
+      }
+      return false;
+    } else {
+      return true;
     }
   }
 
@@ -412,67 +436,16 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
     return '$hours:$minutes:$seconds';
   }
 
-  Future<bool> _onWillPop() async {
-    if (_isRunning) {
-      _showExitConfirmationDialog();
-      return false;
-    }
-    return true;
-  }
-
-  void _showExitConfirmationDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('Exit Run'),
-        content: const Text('Are you sure you want to exit the run?'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              await _stopRun();
-              if (mounted) {
-                Navigator.of(context).pop(); // Close dialog
-                context.router.pop(); // Exit screen
-              }
-            },
-            child: const Text('Exit'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _stopRun() async {
-    _timer?.cancel();
-    _locationSubscription?.cancel();
-    if (_isRunning) {
-      setState(() {
-        _isRunning = false;
-      });
-      await _socketService.endRun(widget.runId);
-      await _handleRunEnd();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
-      onWillPop: _onWillPop,
+      onWillPop: _handleBackPress,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Active Run'),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () => _onWillPop().then((canPop) {
-              if (canPop) Navigator.of(context).pop();
-            }),
+            onPressed: _handleBackPress,
           ),
           actions: [
             IconButton(
@@ -535,45 +508,81 @@ class _ActiveRunScreenState extends ConsumerState<ActiveRunScreen> {
                     point: LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
                     width: 60,
                     height: 80,
-                    builder: (context) => AnimatedLocationMarker(
-                      color: primaryColor,
-                      showWaves: _isRunning,
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: primaryColor,
-                          shape: BoxShape.circle,
-                          border: Border.all(
+                    child: Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: primaryColor,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white,
+                              width: 2,
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.navigation,
                             color: Colors.white,
-                            width: 2,
+                            size: 20,
                           ),
                         ),
-                        child: const Icon(
-                          Icons.navigation,
-                          color: Colors.white,
-                          size: 20,
-                        ),
+                        if (_isRunning)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            margin: const EdgeInsets.only(top: 4),
+                            decoration: BoxDecoration(
+                              color: primaryColor.withOpacity(0.8),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Text(
+                              'Running',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ..._participants.values.map((participant) => Marker(
+                  width: 80.0,
+                  height: 80.0,
+                  point: LatLng(participant.latitude, participant.longitude),
+                  child: Column(
+                    children: [
+                      const Icon(
+                        Icons.person_pin_circle,
+                        color: Colors.blue,
+                        size: 30,
                       ),
-                      label: _isRunning ? Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
+                      Container(
+                        padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
-                          color: primaryColor.withOpacity(0.8),
-                          borderRadius: BorderRadius.circular(12),
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(4),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 4,
+                            ),
+                          ],
                         ),
-                        child: const Text(
-                          'Running',
-                          style: TextStyle(
+                        child: Text(
+                          participant.name,
+                          style: const TextStyle(
                             fontSize: 12,
-                            color: Colors.white,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                      ) : null,
-                    ),
+                      ),
+                    ],
                   ),
+                )),
               ],
             ),
           ],

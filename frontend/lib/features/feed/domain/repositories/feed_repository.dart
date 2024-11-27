@@ -1,6 +1,8 @@
 import 'package:dartz/dartz.dart';
+import '../../data/models/post.dart';
+import '../../data/models/comment.dart';
+import '../../data/models/run_data.dart';
 import '../../../../core/error/failures.dart';
-import '../models/post.dart';
 
 abstract class FeedRepository {
   Future<Either<Failure, List<Post>>> getFeedPosts({
@@ -10,7 +12,7 @@ abstract class FeedRepository {
 
   Future<Either<Failure, Post>> createPost({
     required String content,
-    List<String>? images,
+    required List<String> images,
     RunData? runData,
   });
 

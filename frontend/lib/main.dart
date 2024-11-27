@@ -78,17 +78,18 @@ class MyApp extends ConsumerWidget {
         listener: (context, state) {
           state.maybeWhen(
             unauthenticated: () {
-              getIt<AppRouter>().replaceAll([const LoginRoute()]);
+              Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
             },
             orElse: () {},
           );
         },
-        child: MaterialApp.router(
+        child: MaterialApp(
           title: 'Runners Social',
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           themeMode: themeMode,
-          routerConfig: getIt<AppRouter>().config(),
+          onGenerateRoute: AppRouter.generateRoute,
+          initialRoute: '/',
         ),
       ),
     );

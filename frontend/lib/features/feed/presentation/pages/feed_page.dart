@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:auto_route/auto_route.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/feed_bloc.dart';
 import '../widgets/post_card.dart';
@@ -9,7 +8,6 @@ import '../../../../core/widgets/loading_indicator.dart';
 import '../../domain/repositories/feed_repository.dart';
 import '../../../../main.dart';
 
-@RoutePage()
 class FeedPage extends StatelessWidget {
   const FeedPage({super.key});
 

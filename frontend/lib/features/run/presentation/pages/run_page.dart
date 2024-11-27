@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:auto_route/auto_route.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/run_session.dart';
 import '../screens/run_create_screen.dart';
 import '../providers/run_provider.dart';
 import '../widgets/run_list_item.dart';
 
-@RoutePage()
 class RunPage extends ConsumerWidget {
   const RunPage({super.key});
 

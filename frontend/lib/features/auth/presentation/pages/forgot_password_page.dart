@@ -1,12 +1,9 @@
-import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/auth_bloc.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_text_field.dart';
-import '../../../../core/router/app_router.dart';
 
-@RoutePage()
 class ForgotPasswordPage extends StatefulWidget {
   const ForgotPasswordPage({super.key});
 
@@ -39,7 +36,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                   content: Text('Password reset email sent!'),
                 ),
               );
-              context.router.pop();
+              Navigator.of(context).pop();
             },
             error: (message) {
               ScaffoldMessenger.of(context).showSnackBar(

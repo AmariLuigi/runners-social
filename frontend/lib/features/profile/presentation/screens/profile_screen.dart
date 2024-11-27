@@ -3,10 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:runners_social/core/providers/theme_provider.dart';
-import 'package:auto_route/auto_route.dart';
 import 'dart:io';
 
-@RoutePage()
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 

@@ -1,39 +1,32 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:freezed_annotation/freezed_annotation.dart';
-import '../../domain/models/post.dart';
+import '../../data/models/post.dart';
+import '../../data/models/comment.dart';
+import '../../data/models/run_data.dart';
 import '../../domain/repositories/feed_repository.dart';
-
-part 'feed_bloc.freezed.dart';
-part 'feed_event.dart';
-part 'feed_state.dart';
+import 'feed_event.dart';
+import 'feed_state.dart';
 
 class FeedBloc extends Bloc<FeedEvent, FeedState> {
-  final FeedRepository _feedRepository;
+  final FeedRepository feedRepository;
   static const int _postsPerPage = 10;
 
-  FeedBloc({required FeedRepository feedRepository})
-      : _feedRepository = feedRepository,
-        super(const FeedState()) {
-    on<FeedEvent>((event, emit) async {
-      await event.map(
-        loadPosts: (e) => _onLoadPosts(e, emit),
-        refreshPosts: (e) => _onRefreshPosts(e, emit),
-        createPost: (e) => _onCreatePost(e, emit),
-        likePost: (e) => _onLikePost(e, emit),
-        unlikePost: (e) => _onUnlikePost(e, emit),
-        addComment: (e) => _onAddComment(e, emit),
-        deleteComment: (e) => _onDeleteComment(e, emit),
-        sharePost: (e) => _onSharePost(e, emit),
-      );
-    });
+  FeedBloc({required this.feedRepository}) : super(const FeedState()) {
+    on<LoadPostsEvent>(_onLoadPosts);
+    on<RefreshPostsEvent>(_onRefreshPosts);
+    on<CreatePostEvent>(_onCreatePost);
+    on<LikePostEvent>(_onLikePost);
+    on<UnlikePostEvent>(_onUnlikePost);
+    on<AddCommentEvent>(_onAddComment);
+    on<DeleteCommentEvent>(_onDeleteComment);
+    on<SharePostEvent>(_onSharePost);
   }
 
-  Future<void> _onLoadPosts(_LoadPosts event, Emitter<FeedState> emit) async {
+  Future<void> _onLoadPosts(LoadPostsEvent event, Emitter<FeedState> emit) async {
     if (state.isLoading || !state.hasMore) return;
 
     emit(state.copyWith(isLoading: true));
 
-    final result = await _feedRepository.getFeedPosts(
+    final result = await feedRepository.getFeedPosts(
       page: state.currentPage,
       limit: _postsPerPage,
     );
@@ -53,10 +46,10 @@ class FeedBloc extends Bloc<FeedEvent, FeedState> {
     );
   }
 
-  Future<void> _onRefreshPosts(_RefreshPosts event, Emitter<FeedState> emit) async {
+  Future<void> _onRefreshPosts(RefreshPostsEvent event, Emitter<FeedState> emit) async {
     emit(state.copyWith(isLoading: true, posts: [], currentPage: 0));
 
-    final result = await _feedRepository.getFeedPosts(
+    final result = await feedRepository.getFeedPosts(
       page: 0,
       limit: _postsPerPage,
     );
@@ -76,10 +69,10 @@ class FeedBloc extends Bloc<FeedEvent, FeedState> {
     );
   }
 
-  Future<void> _onCreatePost(_CreatePost event, Emitter<FeedState> emit) async {
+  Future<void> _onCreatePost(CreatePostEvent event, Emitter<FeedState> emit) async {
     emit(state.copyWith(isSubmitting: true));
 
-    final result = await _feedRepository.createPost(
+    final result = await feedRepository.createPost(
       content: event.content,
       images: event.images,
       runData: event.runData,
@@ -98,8 +91,8 @@ class FeedBloc extends Bloc<FeedEvent, FeedState> {
     );
   }
 
-  Future<void> _onLikePost(_LikePost event, Emitter<FeedState> emit) async {
-    final result = await _feedRepository.likePost(event.postId);
+  Future<void> _onLikePost(LikePostEvent event, Emitter<FeedState> emit) async {
+    final result = await feedRepository.likePost(event.postId);
 
     result.fold(
       (failure) => emit(state.copyWith(error: failure.message)),
@@ -107,7 +100,8 @@ class FeedBloc extends Bloc<FeedEvent, FeedState> {
         final updatedPosts = state.posts.map((post) {
           if (post.id == event.postId) {
             return post.copyWith(
-              likes: [...post.likes, event.userId],
+              likedByUserIds: [...post.likedByUserIds, event.userId],
+              likes: post.likes + 1,
             );
           }
           return post;
@@ -118,8 +112,8 @@ class FeedBloc extends Bloc<FeedEvent, FeedState> {
     );
   }
 
-  Future<void> _onUnlikePost(_UnlikePost event, Emitter<FeedState> emit) async {
-    final result = await _feedRepository.unlikePost(event.postId);
+  Future<void> _onUnlikePost(UnlikePostEvent event, Emitter<FeedState> emit) async {
+    final result = await feedRepository.unlikePost(event.postId);
 
     result.fold(
       (failure) => emit(state.copyWith(error: failure.message)),
@@ -127,7 +121,8 @@ class FeedBloc extends Bloc<FeedEvent, FeedState> {
         final updatedPosts = state.posts.map((post) {
           if (post.id == event.postId) {
             return post.copyWith(
-              likes: post.likes.where((id) => id != event.userId).toList(),
+              likedByUserIds: post.likedByUserIds.where((id) => id != event.userId).toList(),
+              likes: post.likes - 1,
             );
           }
           return post;
@@ -138,8 +133,8 @@ class FeedBloc extends Bloc<FeedEvent, FeedState> {
     );
   }
 
-  Future<void> _onAddComment(_AddComment event, Emitter<FeedState> emit) async {
-    final result = await _feedRepository.addComment(
+  Future<void> _onAddComment(AddCommentEvent event, Emitter<FeedState> emit) async {
+    final result = await feedRepository.addComment(
       postId: event.postId,
       content: event.content,
     );
@@ -161,8 +156,8 @@ class FeedBloc extends Bloc<FeedEvent, FeedState> {
     );
   }
 
-  Future<void> _onDeleteComment(_DeleteComment event, Emitter<FeedState> emit) async {
-    final result = await _feedRepository.deleteComment(
+  Future<void> _onDeleteComment(DeleteCommentEvent event, Emitter<FeedState> emit) async {
+    final result = await feedRepository.deleteComment(
       postId: event.postId,
       commentId: event.commentId,
     );
@@ -186,8 +181,8 @@ class FeedBloc extends Bloc<FeedEvent, FeedState> {
     );
   }
 
-  Future<void> _onSharePost(_SharePost event, Emitter<FeedState> emit) async {
-    final result = await _feedRepository.sharePost(event.postId);
+  Future<void> _onSharePost(SharePostEvent event, Emitter<FeedState> emit) async {
+    final result = await feedRepository.sharePost(event.postId);
 
     result.fold(
       (failure) => emit(state.copyWith(error: failure.message)),
@@ -196,6 +191,7 @@ class FeedBloc extends Bloc<FeedEvent, FeedState> {
           if (post.id == event.postId) {
             return post.copyWith(
               shareCount: post.shareCount + 1,
+              shares: post.shares + 1,
             );
           }
           return post;

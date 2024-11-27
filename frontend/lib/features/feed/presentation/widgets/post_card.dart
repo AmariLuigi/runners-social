@@ -1,18 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../domain/models/post.dart';
+import '../../data/models/post.dart';
 import '../bloc/feed_bloc.dart';
-import 'run_data_preview.dart';
-import 'post_actions.dart';
-import 'post_comments.dart';
+import '../bloc/feed_event.dart';
 
 class PostCard extends StatelessWidget {
   final Post post;
 
-  const PostCard({
-    super.key,
-    required this.post,
-  });
+  const PostCard({Key? key, required this.post}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -23,18 +18,16 @@ class PostCard extends StatelessWidget {
         children: [
           ListTile(
             leading: CircleAvatar(
-              backgroundImage: NetworkImage(post.author.profileImage),
+              backgroundImage: NetworkImage(post.user.avatarUrl),
             ),
-            title: Text(post.author.name),
-            subtitle: Text(
-              _formatTimestamp(post.createdAt),
-              style: Theme.of(context).textTheme.bodySmall,
+            title: Text(post.user.name),
+            subtitle: Text(post.formattedDate),
+          ),
+          if (post.content.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(post.content),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(post.content),
-          ),
           if (post.images.isNotEmpty)
             SizedBox(
               height: 200,
@@ -42,77 +35,118 @@ class PostCard extends StatelessWidget {
                 scrollDirection: Axis.horizontal,
                 itemCount: post.images.length,
                 itemBuilder: (context, index) {
-                  return Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
-                        post.images[index],
-                        fit: BoxFit.cover,
-                        width: 200,
-                      ),
-                    ),
+                  return Image.network(
+                    post.images[index],
+                    fit: BoxFit.cover,
                   );
                 },
               ),
             ),
-          if (post.runData != null)
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: RunDataPreview(runData: post.runData!),
-            ),
-          PostActions(
-            post: post,
-            onLike: () => context.read<FeedBloc>().add(
-                  FeedEvent.likePost(
-                    postId: post.id,
-                    userId: 'currentUserId', // TODO: Get from auth
-                  ),
+          ButtonBar(
+            alignment: MainAxisAlignment.spaceAround,
+            children: [
+              TextButton.icon(
+                onPressed: () {
+                  if (post.isLiked) {
+                    context.read<FeedBloc>().add(
+                          UnlikePostEvent(
+                            postId: post.id,
+                            userId: post.user.id,
+                          ),
+                        );
+                  } else {
+                    context.read<FeedBloc>().add(
+                          LikePostEvent(
+                            postId: post.id,
+                            userId: post.user.id,
+                          ),
+                        );
+                  }
+                },
+                icon: Icon(
+                  post.isLiked ? Icons.favorite : Icons.favorite_border,
+                  color: post.isLiked ? Colors.red : null,
                 ),
-            onUnlike: () => context.read<FeedBloc>().add(
-                  FeedEvent.unlikePost(
-                    postId: post.id,
-                    userId: 'currentUserId', // TODO: Get from auth
-                  ),
-                ),
-            onShare: () => context.read<FeedBloc>().add(
-                  FeedEvent.sharePost(postId: post.id),
-                ),
-          ),
-          PostComments(
-            post: post,
-            onAddComment: (content) => context.read<FeedBloc>().add(
-                  FeedEvent.addComment(
-                    postId: post.id,
-                    content: content,
-                  ),
-                ),
-            onDeleteComment: (commentId) => context.read<FeedBloc>().add(
-                  FeedEvent.deleteComment(
-                    postId: post.id,
-                    commentId: commentId,
-                  ),
-                ),
+                label: Text('${post.likes} Likes'),
+              ),
+              TextButton.icon(
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => AddCommentDialog(
+                      onSubmit: (content) {
+                        context.read<FeedBloc>().add(
+                              AddCommentEvent(
+                                postId: post.id,
+                                content: content,
+                              ),
+                            );
+                      },
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.comment),
+                label: Text('${post.comments.length} Comments'),
+              ),
+              TextButton.icon(
+                onPressed: () {
+                  context.read<FeedBloc>().add(SharePostEvent(postId: post.id));
+                },
+                icon: const Icon(Icons.share),
+                label: Text('${post.shares} Shares'),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
+}
 
-  String _formatTimestamp(DateTime timestamp) {
-    final now = DateTime.now();
-    final difference = now.difference(timestamp);
+class AddCommentDialog extends StatefulWidget {
+  final Function(String) onSubmit;
 
-    if (difference.inDays > 7) {
-      return '${timestamp.day}/${timestamp.month}/${timestamp.year}';
-    } else if (difference.inDays > 0) {
-      return '${difference.inDays}d ago';
-    } else if (difference.inHours > 0) {
-      return '${difference.inHours}h ago';
-    } else if (difference.inMinutes > 0) {
-      return '${difference.inMinutes}m ago';
-    } else {
-      return 'Just now';
-    }
+  const AddCommentDialog({Key? key, required this.onSubmit}) : super(key: key);
+
+  @override
+  _AddCommentDialogState createState() => _AddCommentDialogState();
+}
+
+class _AddCommentDialogState extends State<AddCommentDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Add Comment'),
+      content: TextField(
+        controller: _controller,
+        decoration: const InputDecoration(
+          hintText: 'Write your comment...',
+        ),
+        maxLines: 3,
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () {
+            if (_controller.text.isNotEmpty) {
+              widget.onSubmit(_controller.text);
+              Navigator.pop(context);
+            }
+          },
+          child: const Text('Submit'),
+        ),
+      ],
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 }

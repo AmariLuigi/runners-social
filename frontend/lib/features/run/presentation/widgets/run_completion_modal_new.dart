@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
-import 'package:auto_route/auto_route.dart';
 
 class RunCompletionModal extends StatelessWidget {
   final double distance;
@@ -108,7 +107,7 @@ class RunCompletionModal extends StatelessWidget {
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton(
-                  onPressed: () => context.router.pop(),
+                  onPressed: () => Navigator.of(context).pop(),
                   style: ElevatedButton.styleFrom(
                     minimumSize: const Size(double.infinity, 48),
                     shape: RoundedRectangleBorder(

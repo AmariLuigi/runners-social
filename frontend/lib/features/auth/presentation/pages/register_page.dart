@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:auto_route/auto_route.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_text_field.dart';
-import '../../../../core/router/app_router.dart';
 import '../bloc/auth_bloc.dart';
 
-@RoutePage()
 class RegisterPage extends StatefulWidget {
   const RegisterPage({Key? key}) : super(key: key);
 
@@ -48,7 +45,7 @@ class _RegisterPageState extends State<RegisterPage> {
           state.maybeWhen(
             authenticated: (_) {
               // Clear navigation stack and replace with home
-              context.router.replaceAll([const HomeRoute()]);
+              Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
             },
             error: (message) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -219,7 +216,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         TextButton(
                           onPressed: isLoading
                               ? null
-                              : () => context.router.pop(),
+                              : () => Navigator.of(context).pop(),
                           child: Text(
                             'Log In',
                             style: AppTextStyles.labelLarge.copyWith(
