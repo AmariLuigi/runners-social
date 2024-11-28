@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../domain/entities/run.dart';
 import '../../providers/run_provider.dart';
+import '../widgets/route_map.dart';
 
 class RunDetailsScreen extends ConsumerStatefulWidget {
   final Run run;
@@ -19,64 +20,108 @@ class RunDetailsScreen extends ConsumerStatefulWidget {
 class _RunDetailsScreenState extends ConsumerState<RunDetailsScreen> {
   @override
   Widget build(BuildContext context) {
+    // TODO: Replace with actual user ID from auth provider
+    const currentUserId = '674599ee41268c5e7d97fa01';
+    
+    // Debug logging
+    print('Run Details - Current User ID: $currentUserId');
+    print('Run Details - Run ID: ${widget.run.id}');
+    print('Run Details - Participants: ${widget.run.participants.map((p) => '\n  - ${p.id} (${p.role})')}');
+    
+    final isOwner = widget.run.participants.any((p) {
+      final matches = p.id == currentUserId && p.role == 'host';
+      print('Run Details - Checking participant ${p.id} (${p.role}) against current user: matches=$matches');
+      return matches;
+    });
+    
+    final isParticipant = widget.run.participants.any((p) {
+      final matches = p.id == currentUserId;
+      print('Run Details - Is participant check: ${p.id} matches=$matches');
+      return matches;
+    });
+    
+    print('Run Details - Final checks: isOwner=$isOwner, isParticipant=$isParticipant');
+
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.run.name),
         actions: [
-          if (widget.run.isParticipant)
+          if (isParticipant || isOwner)
             PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert),
               onSelected: (value) async {
                 if (value == 'leave') {
-                  await ref.read(runProvider.notifier).leaveRun(widget.run.id);
-                  if (context.mounted) {
-                    Navigator.of(context).pop();
+                  try {
+                    await ref.read(runProvider.notifier).leaveRun(widget.run.id);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Successfully left run')),
+                      );
+                      Navigator.of(context).pop();
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to leave run: $e')),
+                      );
+                    }
                   }
                 } else if (value == 'delete') {
-                  // Show confirmation dialog
-                  if (context.mounted) {
-                    final shouldDelete = await showDialog<bool>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Delete Run'),
-                        content: const Text('Are you sure you want to delete this run? This action cannot be undone.'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(false),
-                            child: const Text('Cancel'),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.of(context).pop(true),
-                            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-                          ),
-                        ],
-                      ),
-                    );
+                  final shouldDelete = await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Delete Run'),
+                      content: const Text('Are you sure you want to delete this run? This action cannot be undone.'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(false),
+                          child: const Text('CANCEL'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(true),
+                          child: const Text('DELETE', style: TextStyle(color: Colors.red)),
+                        ),
+                      ],
+                    ),
+                  );
 
-                    if (shouldDelete == true && context.mounted) {
+                  if (shouldDelete == true && mounted) {
+                    try {
                       await ref.read(runProvider.notifier).deleteRun(widget.run.id);
-                      Navigator.of(context).pop();
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Successfully deleted run')),
+                        );
+                        Navigator.of(context).pop();
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Failed to delete run: $e')),
+                        );
+                      }
                     }
                   }
                 }
               },
               itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'leave',
-                  child: Row(
-                    children: [
-                      Icon(Icons.exit_to_app),
-                      SizedBox(width: 8),
-                      Text('Leave Run'),
-                    ],
+                if (!isOwner && isParticipant)
+                  const PopupMenuItem(
+                    value: 'leave',
+                    child: Row(
+                      children: [
+                        Icon(Icons.exit_to_app),
+                        SizedBox(width: 8),
+                        Text('Leave Run'),
+                      ],
+                    ),
                   ),
-                ),
-                // Only show delete option for the run creator
-                if (widget.run.participants.any((p) => p.role == 'host' && p.id == widget.run.participants.first.id))
+                if (isOwner)
                   const PopupMenuItem(
                     value: 'delete',
                     child: Row(
                       children: [
-                        Icon(Icons.delete, color: Colors.red),
+                        Icon(Icons.delete_outline, color: Colors.red),
                         SizedBox(width: 8),
                         Text('Delete Run', style: TextStyle(color: Colors.red)),
                       ],
@@ -87,116 +132,105 @@ class _RunDetailsScreenState extends ConsumerState<RunDetailsScreen> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Card(
               child: Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Icon(
-                          widget.run.type == RunType.solo ? Icons.person : Icons.group,
-                          size: 24,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          widget.run.type == RunType.solo ? 'Solo Run' : 'Group Run',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        if (widget.run.type == RunType.group) ...[
-                          const Spacer(),
-                          Text(
-                            '${(widget.run.participants.length)}/${widget.run.maxParticipants ?? "∞"}',
-                            style: Theme.of(context).textTheme.bodyLarge,
-                          ),
-                        ],
-                      ],
+                    Text(
+                      'Run Details',
+                      style: Theme.of(context).textTheme.titleLarge,
                     ),
-                    const Divider(),
-                    Row(
-                      children: [
-                        const Icon(Icons.calendar_today, size: 24),
-                        const SizedBox(width: 8),
+                    const SizedBox(height: 16),
+                    _buildDetailRow(
+                      'Description',
+                      widget.run.description,
+                    ),
+                    _buildDetailRow(
+                      'Start Time',
+                      DateFormat('MMM d, y • h:mm a').format(widget.run.startTime),
+                    ),
+                    _buildDetailRow(
+                      'Type',
+                      widget.run.type.toUpperCase(),
+                    ),
+                    _buildDetailRow(
+                      'Status',
+                      widget.run.status.toUpperCase(),
+                    ),
+                    if (widget.run.meetingPoint != null)
+                      _buildDetailRow(
+                        'Meeting Point',
+                        widget.run.meetingPoint!,
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (widget.run.routePoints != null && widget.run.routePoints!.isNotEmpty) ...[
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Planned Route',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        height: 300,
+                        child: RouteMap(
+                          routePoints: widget.run.routePoints ?? [],
+                          isEditable: false,
+                          onRouteChanged: null,
+                        ),
+                      ),
+                      if (widget.run.plannedDistance != null) ...[
+                        const SizedBox(height: 16),
                         Text(
-                          DateFormat('MMM d, y • h:mm a').format(widget.run.startTime),
+                          'Planned Distance: ${widget.run.plannedDistance!.toStringAsFixed(2)} km',
                           style: Theme.of(context).textTheme.bodyLarge,
                         ),
                       ],
-                    ),
-                    if (widget.run.description != null) ...[
-                      const Divider(),
-                      Text(
-                        widget.run.description!,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
                     ],
-                    const Divider(),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _getStatusColor(widget.run.status),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Text(
-                            _getStatusText(widget.run.status),
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                        ),
-                      ],
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Participants',
+                      style: Theme.of(context).textTheme.titleLarge,
                     ),
-                    const Divider(),
-                    // Participants section
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Participants',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 8),
-                        ...widget.run.participants.map((participant) => Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.person_outline, size: 20),
-                              const SizedBox(width: 8),
-                              Text(
-                                participant.username,
-                                style: Theme.of(context).textTheme.bodyMedium,
-                              ),
-                              const SizedBox(width: 8),
-                              if (participant.role == 'host')
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    'Host',
-                                    style: TextStyle(
-                                      color: Colors.blue[700],
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ),
-                            ],
+                    const SizedBox(height: 16),
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: widget.run.participants.length,
+                      itemBuilder: (context, index) {
+                        final participant = widget.run.participants[index];
+                        return ListTile(
+                          leading: const CircleAvatar(
+                            child: Icon(Icons.person),
                           ),
-                        )).toList(),
-                      ],
+                          title: Text(participant.username),
+                          subtitle: Text(participant.role.toUpperCase()),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -225,16 +259,38 @@ class _RunDetailsScreenState extends ConsumerState<RunDetailsScreen> {
     );
   }
 
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[600],
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(value),
+          ),
+        ],
+      ),
+    );
+  }
+
   Color _getStatusColor(RunStatus status) {
     switch (status) {
       case RunStatus.planned:
         return Colors.blue;
       case RunStatus.active:
         return Colors.green;
-      case RunStatus.paused:
-        return Colors.orange;
       case RunStatus.completed:
-        return Colors.grey;
+        return Colors.purple;
       case RunStatus.cancelled:
         return Colors.red;
     }
@@ -246,8 +302,6 @@ class _RunDetailsScreenState extends ConsumerState<RunDetailsScreen> {
         return 'Planned';
       case RunStatus.active:
         return 'Active';
-      case RunStatus.paused:
-        return 'Paused';
       case RunStatus.completed:
         return 'Completed';
       case RunStatus.cancelled:

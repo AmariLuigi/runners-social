@@ -3,96 +3,98 @@ import 'package:dio/dio.dart';
 import '../domain/entities/run.dart';
 import '../../../core/services/api_service.dart';
 
-final runProvider = StateNotifierProvider<RunNotifier, List<Run>>((ref) {
+final runProvider = StateNotifierProvider<RunNotifier, AsyncValue<List<Run>>>((ref) {
   final apiService = ref.watch(apiServiceProvider);
   return RunNotifier(apiService);
 });
 
-class RunNotifier extends StateNotifier<List<Run>> {
+class RunNotifier extends StateNotifier<AsyncValue<List<Run>>> {
   final ApiService _apiService;
 
-  RunNotifier(this._apiService) : super([]) {
+  RunNotifier(this._apiService) : super(const AsyncValue.loading()) {
     loadRuns();
   }
 
   Future<void> loadRuns() async {
     try {
       final response = await _apiService.get('/api/runs');
-      // Handle both wrapped and unwrapped response formats
-      final List<dynamic> runsJson = response.data is Map<String, dynamic> 
+      final List<dynamic> runsJson = response.data is Map<String, dynamic>
           ? response.data['runs'] as List<dynamic>
           : response.data as List<dynamic>;
       
-      state = runsJson.map((json) {
-        // Add currentUserId to each run for isParticipant check
-        final userId = json['user']?['_id']?.toString() ?? '';
-        json['currentUserId'] = userId;
+      state = AsyncValue.data(runsJson.map((json) {
+        // Convert 'title' to 'name' when parsing backend response
+        if (json['title'] != null) {
+          json['name'] = json['title'];
+        }
         return Run.fromJson(json);
-      }).toList();
-    } catch (e) {
+      }).toList());
+    } catch (e, stack) {
       print('Error loading runs: $e');
-      rethrow;
+      state = AsyncValue.error(e, stack);
+      throw e;
     }
   }
 
-  Future<void> createRun(Run run) async {
+  Future<void> createRun(Run run, Map<String, dynamic> payload) async {
     try {
-      final response = await _apiService.post(
-        '/api/runs',
-        data: {
-          'title': run.name,
-          'type': run.type.toString().split('.').last,
-          'startTime': run.startTime.toIso8601String(),
-          'description': run.description,
-          'runStyle': 'free', // Always set a default runStyle
-          'maxParticipants': run.maxParticipants,
-          'privacy': run.privacy ?? 'public',
-          'status': 'planned',
-        },
-      );
-      
-      // Extract the runSession from the response and add currentUserId
-      final runSessionData = response.data['runSession'] as Map<String, dynamic>;
-      final userId = (runSessionData['user'] as Map<String, dynamic>)['_id'];
-      runSessionData['currentUserId'] = userId;
-      
-      final newRun = Run.fromJson(runSessionData);
-      state = [...state, newRun];
-    } catch (e) {
+      final response = await _apiService.post('/api/runs', data: {
+        'title': run.name,  // Changed from 'name' to 'title' to match backend schema
+        'description': run.description,
+        'startTime': run.startTime.toIso8601String(),
+        'type': run.type,
+        'privacy': run.privacy,
+        'style': run.style,
+        'participants': run.participants.map((p) => {
+          'user': p.id,
+          'role': p.role,
+          'isActive': p.isActive,
+        }).toList(),
+        if (run.plannedDistance != null) 'plannedDistance': run.plannedDistance,
+        if (run.routePoints != null) 'routePoints': run.routePoints!.map((p) => p.toJson()).toList(),
+        if (run.meetingPoint != null) 'meetingPoint': run.meetingPoint,
+      });
+      await loadRuns();
+    } catch (e, stack) {
       print('Error creating run: $e');
-      rethrow;
+      state = AsyncValue.error(e, stack);
+      throw e;
     }
   }
 
-  Future<void> joinRun(String id) async {
+  Future<void> joinRun(String runId) async {
     try {
-      final response = await _apiService.post('/api/runs/$id/join');
+      final response = await _apiService.post('/api/runs/$runId/join');
       final updatedRun = Run.fromJson(response.data);
-      state = state.map((run) => run.id == id ? updatedRun : run).toList();
-    } catch (e) {
+      state = AsyncValue.data([...state.value!.map((run) => 
+        run.id == runId ? updatedRun : run
+      )]);
+    } catch (e, stack) {
       print('Error joining run: $e');
-      rethrow;
+      state = AsyncValue.error(e, stack);
+      throw e;
     }
   }
 
   Future<void> leaveRun(String runId) async {
     try {
       await _apiService.post('/api/runs/$runId/leave');
-      state = state.where((run) => run.id != runId).toList();
-    } catch (e) {
+      await loadRuns();
+    } catch (e, stack) {
       print('Error leaving run: $e');
-      rethrow;
+      state = AsyncValue.error(e, stack);
+      throw e;
     }
   }
 
   Future<void> deleteRun(String runId) async {
     try {
       await _apiService.delete('/api/runs/$runId');
-      // Remove the run from the state
-      state = state.where((run) => run.id != runId).toList();
-    } catch (e) {
+      await loadRuns();
+    } catch (e, stack) {
       print('Error deleting run: $e');
-      rethrow;
+      state = AsyncValue.error(e, stack);
+      throw e;
     }
   }
 
@@ -105,15 +107,14 @@ class RunNotifier extends StateNotifier<List<Run>> {
           'type': run.type.toString().split('.').last,
           'startTime': run.startTime.toIso8601String(),
           'description': run.description,
-          'runStyle': run.runStyle,
-          'maxParticipants': run.maxParticipants,
           'privacy': run.privacy,
         },
       );
       final updatedRun = Run.fromJson(response.data);
-      state = state.map((r) => r.id == run.id ? updatedRun : r).toList();
-    } catch (e) {
+      state = AsyncValue.data(state.value!.map((r) => r.id == run.id ? updatedRun : r).toList());
+    } catch (e, stack) {
       print('Error updating run: $e');
+      state = AsyncValue.error(e, stack);
       rethrow;
     }
   }
