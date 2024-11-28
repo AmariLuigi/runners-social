@@ -20,6 +20,29 @@ enum RunStatus {
   cancelled
 }
 
+class Participant {
+  final String id;
+  final String username;
+  final String role;
+  final bool isActive;
+
+  Participant({
+    required this.id,
+    required this.username,
+    required this.role,
+    required this.isActive,
+  });
+
+  factory Participant.fromJson(Map<String, dynamic> json) {
+    return Participant(
+      id: json['user']['_id'].toString(),
+      username: json['user']['username'].toString(),
+      role: json['role'].toString(),
+      isActive: json['isActive'] as bool? ?? true,
+    );
+  }
+}
+
 class Run {
   final String id;
   final String name;
@@ -30,7 +53,7 @@ class Run {
   final String? runStyle;
   final int? maxParticipants;
   final String privacy;
-  final List<String> participants;
+  final List<Participant> participants;
   final List<dynamic> chat;
   final List<dynamic> checkpoints;
   final List<dynamic> metrics;
@@ -64,12 +87,16 @@ class Run {
       // Handle nested participants data with different structures
       final participantsList = (json['participants'] as List<dynamic>?)?.map((p) {
         if (p['user'] is Map<String, dynamic>) {
-          return p['user']['_id'].toString();
-        } else if (p['user'] is String) {
-          return p['user'].toString();
+          return Participant.fromJson(p);
+        } else {
+          return Participant(
+            id: p['user'].toString(),
+            username: '',
+            role: '',
+            isActive: true,
+          );
         }
-        return '';
-      }).where((id) => id.isNotEmpty).toList() ?? [];
+      }).where((p) => p.id.isNotEmpty).toList() ?? [];
 
       return Run(
         id: json['_id']?.toString() ?? '',
@@ -96,7 +123,7 @@ class Run {
         photos: json['photos'] as List<dynamic>? ?? [],
         comments: json['comments'] as List<dynamic>? ?? [],
         likes: json['likes'] as List<dynamic>? ?? [],
-        isParticipant: participantsList.contains(json['currentUserId']),
+        isParticipant: participantsList.any((p) => p.id == json['currentUserId']),
       );
     } catch (e) {
       print('Error parsing run JSON: $e');
@@ -116,7 +143,14 @@ class Run {
       'runStyle': runStyle,
       'maxParticipants': maxParticipants,
       'privacy': privacy,
-      'participants': participants,
+      'participants': participants.map((p) => {
+        'user': {
+          '_id': p.id,
+          'username': p.username,
+        },
+        'role': p.role,
+        'isActive': p.isActive,
+      }).toList(),
       'chat': chat,
       'checkpoints': checkpoints,
       'metrics': metrics,
@@ -142,7 +176,7 @@ class Run {
     String? runStyle,
     int? maxParticipants,
     String? privacy,
-    List<String>? participants,
+    List<Participant>? participants,
     List<dynamic>? chat,
     List<dynamic>? checkpoints,
     List<dynamic>? metrics,
