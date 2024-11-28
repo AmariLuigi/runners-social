@@ -136,6 +136,11 @@ class _RunDetailsScreenState extends ConsumerState<RunDetailsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Text(
+              'Run Details',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 16),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -143,68 +148,38 @@ class _RunDetailsScreenState extends ConsumerState<RunDetailsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Run Details',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 16),
-                    _buildDetailRow(
                       'Description',
-                      widget.run.description,
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
-                    _buildDetailRow(
+                    const SizedBox(height: 8),
+                    Text(widget.run.description),
+                    const SizedBox(height: 16),
+                    Text(
                       'Start Time',
-                      DateFormat('MMM d, y • h:mm a').format(widget.run.startTime),
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
-                    _buildDetailRow(
-                      'Type',
-                      widget.run.type.toUpperCase(),
+                    const SizedBox(height: 8),
+                    Text(DateFormat('MMM d, y • h:mm a').format(widget.run.startTime)),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Route',
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
-                    _buildDetailRow(
-                      'Status',
-                      widget.run.status.toUpperCase(),
-                    ),
-                    if (widget.run.meetingPoint != null)
-                      _buildDetailRow(
-                        'Meeting Point',
-                        widget.run.meetingPoint!,
-                      ),
+                    const SizedBox(height: 8),
+                    if (widget.run.routePoints != null && widget.run.routePoints!.isNotEmpty)
+                      SizedBox(
+                        height: 300,
+                        child: RouteMap(
+                          routePoints: widget.run.routePoints!,
+                          isEditable: false,
+                        ),
+                      )
+                    else
+                      const Text('No planned route'),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            if (widget.run.routePoints != null && widget.run.routePoints!.isNotEmpty) ...[
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Planned Route',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        height: 300,
-                        child: RouteMap(
-                          routePoints: widget.run.routePoints ?? [],
-                          isEditable: false,
-                          onRouteChanged: null,
-                        ),
-                      ),
-                      if (widget.run.plannedDistance != null) ...[
-                        const SizedBox(height: 16),
-                        Text(
-                          'Planned Distance: ${widget.run.plannedDistance!.toStringAsFixed(2)} km',
-                          style: Theme.of(context).textTheme.bodyLarge,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ],
             const SizedBox(height: 16),
             Card(
               child: Padding(
@@ -214,24 +189,16 @@ class _RunDetailsScreenState extends ConsumerState<RunDetailsScreen> {
                   children: [
                     Text(
                       'Participants',
-                      style: Theme.of(context).textTheme.titleLarge,
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
-                    const SizedBox(height: 16),
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: widget.run.participants.length,
-                      itemBuilder: (context, index) {
-                        final participant = widget.run.participants[index];
-                        return ListTile(
-                          leading: const CircleAvatar(
-                            child: Icon(Icons.person),
-                          ),
-                          title: Text(participant.username),
-                          subtitle: Text(participant.role.toUpperCase()),
-                        );
-                      },
-                    ),
+                    const SizedBox(height: 8),
+                    ...widget.run.participants.map((participant) => ListTile(
+                      leading: const CircleAvatar(
+                        child: Icon(Icons.person),
+                      ),
+                      title: Text(participant.username),
+                      subtitle: Text(participant.role),
+                    )),
                   ],
                 ),
               ),
@@ -255,30 +222,6 @@ class _RunDetailsScreenState extends ConsumerState<RunDetailsScreen> {
               ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[600],
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(value),
-          ),
-        ],
       ),
     );
   }

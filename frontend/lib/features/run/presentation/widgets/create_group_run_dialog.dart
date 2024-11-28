@@ -309,7 +309,7 @@ class _CreateGroupRunDialogState extends ConsumerState<CreateGroupRunDialog> {
                   child: const Text('Cancel'),
                 ),
                 const SizedBox(width: 16),
-                FilledButton(
+                ElevatedButton(
                   onPressed: () async {
                     if (_titleController.text.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -318,41 +318,47 @@ class _CreateGroupRunDialogState extends ConsumerState<CreateGroupRunDialog> {
                       return;
                     }
 
-                    final run = Run(
-                      id: '',
-                      name: _titleController.text,
-                      description: _descriptionController.text,
-                      startTime: _startTime,
-                      status: 'planned',
-                      type: _runType,
-                      privacy: _privacy,
-                      style: _hasPlannedRoute ? 'checkpoint' : 'free',
-                      participants: [
-                        Participant(
-                          id: 'currentUserId',
-                          username: 'Current User',
-                          role: 'host',
-                          isActive: true,
-                        ),
-                      ],
-                      plannedDistance: _hasPlannedRoute ? _plannedDistance : null,
-                      routePoints: _hasPlannedRoute ? _routePoints : null,
-                    );
-
                     try {
-                      await ref.read(runProvider.notifier).createRun(run, {});
+                      final run = Run(
+                        id: '',
+                        name: _titleController.text,
+                        description: _descriptionController.text,
+                        startTime: _startTime,
+                        status: 'planned',
+                        type: _runType,
+                        privacy: _privacy,
+                        style: 'free',
+                        participants: [
+                          Participant(
+                            id: '674599ee41268c5e7d97fa01', // Current user ID
+                            username: 'Current User',
+                            role: 'host',
+                            isActive: true,
+                          ),
+                        ],
+                        plannedDistance: _targetDistance,
+                        routePoints: _routePoints,
+                      );
+
+                      final payload = {
+                        'plannedDistance': _targetDistance,
+                        if (_routePoints.isNotEmpty) 'routePoints': _routePoints.map((p) => p.toJson()).toList(),
+                      };
+
+                      await ref.read(runProvider.notifier).createRun(run, payload);
+                      
                       if (mounted) {
-                        Navigator.of(context).pop(true);
+                        Navigator.of(context).pop(run);
                       }
                     } catch (e) {
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Error creating run: $e')),
+                          SnackBar(content: Text('Failed to create run: $e')),
                         );
                       }
                     }
                   },
-                  child: const Text('Create'),
+                  child: const Text('Create Run'),
                 ),
               ],
             ),
