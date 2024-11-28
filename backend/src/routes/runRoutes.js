@@ -198,6 +198,43 @@ router.post('/:runId/leave', authenticateToken, async (req, res) => {
   }
 });
 
+// Delete a run
+router.delete('/:runId', authenticateToken, async (req, res) => {
+  try {
+    console.log('Delete request for run:', req.params.runId);
+    console.log('Current user ID:', req.user.userId);
+
+    const runSession = await RunSession.findById(req.params.runId)
+      .populate('user', 'username');
+    
+    if (!runSession) {
+      return res.status(404).json({ error: 'Run session not found' });
+    }
+
+    // Convert both IDs to strings for comparison
+    const creatorId = runSession.user._id.toString();
+    const currentUserId = typeof req.user.userId === 'string' ? 
+      req.user.userId : 
+      req.user.userId.toString();
+
+    console.log('Run creator ID (string):', creatorId);
+    console.log('Current user ID (string):', currentUserId);
+    console.log('Current user matches creator?', creatorId === currentUserId);
+
+    // Check if the user is the creator of the run
+    if (creatorId !== currentUserId) {
+      return res.status(403).json({ error: 'Not authorized to delete this run' });
+    }
+
+    await RunSession.findByIdAndDelete(req.params.runId);
+    
+    res.json({ message: 'Run deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting run:', error);
+    res.status(500).json({ error: 'Failed to delete run' });
+  }
+});
+
 // Get specific run details
 router.get('/:runId', authenticateToken, async (req, res) => {
   try {

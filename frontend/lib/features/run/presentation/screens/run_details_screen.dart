@@ -24,14 +24,65 @@ class _RunDetailsScreenState extends ConsumerState<RunDetailsScreen> {
         title: Text(widget.run.name),
         actions: [
           if (widget.run.isParticipant)
-            IconButton(
-              icon: const Icon(Icons.exit_to_app),
-              onPressed: () async {
-                await ref.read(runProvider.notifier).leaveRun(widget.run.id);
-                if (context.mounted) {
-                  Navigator.of(context).pop();
+            PopupMenuButton<String>(
+              onSelected: (value) async {
+                if (value == 'leave') {
+                  await ref.read(runProvider.notifier).leaveRun(widget.run.id);
+                  if (context.mounted) {
+                    Navigator.of(context).pop();
+                  }
+                } else if (value == 'delete') {
+                  // Show confirmation dialog
+                  if (context.mounted) {
+                    final shouldDelete = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Delete Run'),
+                        content: const Text('Are you sure you want to delete this run? This action cannot be undone.'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(false),
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(true),
+                            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (shouldDelete == true && context.mounted) {
+                      await ref.read(runProvider.notifier).deleteRun(widget.run.id);
+                      Navigator.of(context).pop();
+                    }
+                  }
                 }
               },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'leave',
+                  child: Row(
+                    children: [
+                      Icon(Icons.exit_to_app),
+                      SizedBox(width: 8),
+                      Text('Leave Run'),
+                    ],
+                  ),
+                ),
+                // Only show delete option for the run creator
+                if (widget.run.participants.any((p) => p.role == 'host' && p.id == widget.run.participants.first.id))
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(Icons.delete, color: Colors.red),
+                        SizedBox(width: 8),
+                        Text('Delete Run', style: TextStyle(color: Colors.red)),
+                      ],
+                    ),
+                  ),
+              ],
             ),
         ],
       ),

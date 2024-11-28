@@ -75,33 +75,24 @@ class RunNotifier extends StateNotifier<List<Run>> {
     }
   }
 
-  Future<void> leaveRun(String id) async {
+  Future<void> leaveRun(String runId) async {
     try {
-      final response = await _apiService.post('/api/runs/$id/leave');
-      
-      // Check if the response contains a message or a full run object
-      if (response.data is Map<String, dynamic> && response.data['message'] != null) {
-        // If it's just a message response, remove the run from the list
-        state = state.where((run) => run.id != id).toList();
-        return;
-      }
-
-      // Otherwise, handle the full run object response
-      final runData = response.data;
-      runData['currentUserId'] = runData['user']?['_id'];
-      final updatedRun = Run.fromJson(runData);
-      
-      if (updatedRun.status == 'cancelled') {
-        // If the run is cancelled, remove it from the list
-        state = state.where((run) => run.id != id).toList();
-      } else {
-        // Otherwise, update it in the list
-        state = state.map((run) => run.id == id ? updatedRun : run).toList();
-      }
+      await _apiService.post('/api/runs/$runId/leave');
+      state = state.where((run) => run.id != runId).toList();
     } catch (e) {
       print('Error leaving run: $e');
-      // Load runs to ensure the UI is in sync with the backend
-      await loadRuns();
+      rethrow;
+    }
+  }
+
+  Future<void> deleteRun(String runId) async {
+    try {
+      await _apiService.delete('/api/runs/$runId');
+      // Remove the run from the state
+      state = state.where((run) => run.id != runId).toList();
+    } catch (e) {
+      print('Error deleting run: $e');
+      rethrow;
     }
   }
 
@@ -123,16 +114,6 @@ class RunNotifier extends StateNotifier<List<Run>> {
       state = state.map((r) => r.id == run.id ? updatedRun : r).toList();
     } catch (e) {
       print('Error updating run: $e');
-      rethrow;
-    }
-  }
-
-  Future<void> deleteRun(String id) async {
-    try {
-      await _apiService.delete('/api/runs/$id');
-      state = state.where((run) => run.id != id).toList();
-    } catch (e) {
-      print('Error deleting run: $e');
       rethrow;
     }
   }
