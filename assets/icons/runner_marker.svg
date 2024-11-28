@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Main circle background -->
+  <circle cx="16" cy="16" r="14" fill="#2196F3" fill-opacity="0.9"/>
+  <circle cx="16" cy="16" r="12" fill="#1976D2"/>
+  
+  <!-- Runner icon -->
+  <path d="M16 10.5C17.1046 10.5 18 9.60457 18 8.5C18 7.39543 17.1046 6.5 16 6.5C14.8954 6.5 14 7.39543 14 8.5C14 9.60457 14.8954 10.5 16 10.5Z" fill="white"/>
+  <path d="M20.5 13.5L18 12L16.5 14L18.5 15.5V20H20V14.5L21.5 15.5L22.5 14L20.5 13.5Z" fill="white"/>
+  <path d="M16.5 14L14 12L11 13.5L12 15L13.5 14.5V20H15V16.5L16.5 14Z" fill="white"/>
+  
+  <!-- Outer ring for better visibility -->
+  <circle cx="16" cy="16" r="14" stroke="white" stroke-width="1.5" stroke-opacity="0.3"/>
+</svg>
