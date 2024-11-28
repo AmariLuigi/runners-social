@@ -3,23 +3,21 @@ import '../../domain/entities/run.dart';
 import 'package:intl/intl.dart';
 
 class RunCard extends StatelessWidget {
-  final String runName;
-  final RunType runType;
-  final RunStatus status;
-  final String startTime;
-  final String location;
+  final Run run;
+  final VoidCallback? onTap;
+  final VoidCallback? onJoin;
+  final VoidCallback? onDelete;
 
   const RunCard({
-    Key? key,
-    required this.runName,
-    required this.runType,
-    required this.status,
-    required this.startTime,
-    required this.location,
-  }) : super(key: key);
+    super.key,
+    required this.run,
+    this.onTap,
+    this.onJoin,
+    this.onDelete,
+  });
 
   Color _getStatusColor() {
-    switch (status) {
+    switch (run.status) {
       case RunStatus.upcoming:
         return Colors.blue;
       case RunStatus.ongoing:
@@ -30,106 +28,101 @@ class RunCard extends StatelessWidget {
   }
 
   IconData _getTypeIcon() {
-    return runType == RunType.solo
-        ? Icons.person
-        : Icons.group;
+    return run.type == RunType.solo ? Icons.person : Icons.group;
   }
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       child: InkWell(
-        onTap: () {
-          // TODO: Navigate to run details
-        },
-        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  Icon(_getTypeIcon()),
+                  const SizedBox(width: 8),
                   Expanded(
-                    child: Row(
-                      children: [
-                        Icon(_getTypeIcon()),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            runName,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      run.name,
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: _getStatusColor().withOpacity(0.1),
+                      color: _getStatusColor(),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      status.name.toUpperCase(),
-                      style: TextStyle(
-                        color: _getStatusColor(),
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      run.status.toString().split('.').last,
+                      style: const TextStyle(color: Colors.white),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  const Icon(
-                    Icons.access_time,
-                    size: 16,
-                    color: Colors.grey,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    startTime,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey[600],
-                        ),
                   ),
                 ],
               ),
               const SizedBox(height: 8),
               Row(
                 children: [
-                  const Icon(
-                    Icons.location_on,
-                    size: 16,
-                    color: Colors.grey,
-                  ),
+                  const Icon(Icons.schedule, size: 16),
                   const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
-                      location,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.grey[600],
-                          ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                  Text(
+                    DateFormat('MMM d, y HH:mm').format(run.startTime),
+                    style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],
               ),
+              if (run.locationName != null) ...[
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(Icons.location_on, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      run.locationName!,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
+              ],
+              if (run.distanceGoal != null) ...[
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(Icons.straighten, size: 16),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${run.distanceGoal} km',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
+              ],
+              if (onJoin != null || onDelete != null) ...[
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    if (onJoin != null)
+                      TextButton.icon(
+                        onPressed: onJoin,
+                        icon: const Icon(Icons.add),
+                        label: const Text('Join'),
+                      ),
+                    if (onDelete != null)
+                      TextButton.icon(
+                        onPressed: onDelete,
+                        icon: const Icon(Icons.delete),
+                        label: const Text('Delete'),
+                        style: TextButton.styleFrom(foregroundColor: Colors.red),
+                      ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),

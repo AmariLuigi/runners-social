@@ -8,16 +8,12 @@ const router = express.Router();
 // Get all runs for the authenticated user
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const runs = await RunSession.find({
-      $or: [
-        { 'participants.user': req.user.userId },
-        { user: req.user.userId }
-      ]
-    })
-    .populate('user', 'username profileImage')
-    .populate('participants.user', 'username profileImage')
-    .sort({ startTime: -1 });
+    const runs = await RunSession.find()
+      .populate('user', 'username profileImage')
+      .populate('participants.user', 'username profileImage')
+      .sort({ createdAt: -1 }); // Sort by creation date, newest first
 
+    console.log(`Found ${runs.length} runs`);
     res.json({ runs });
   } catch (error) {
     console.error('Error fetching runs:', error);
@@ -52,38 +48,38 @@ router.post('/', authenticateToken, async (req, res) => {
       description, 
       type, 
       maxParticipants, 
-      scheduledStart,
-      checkpoints 
+      startTime,
+      checkpoints,
+      runStyle,
+      privacy,
+      status = 'planned'
     } = req.body;
 
-    // Process checkpoints to ensure proper ObjectId format
-    const processedCheckpoints = checkpoints?.map((checkpoint, index) => ({
-      ...checkpoint,
-      _id: new mongoose.Types.ObjectId(),  // Generate new ObjectId for each checkpoint
-      order: index + 1  // Ensure proper ordering
-    })) || [];
+    console.log('Creating run with user:', req.user.userId);
 
     const runSession = new RunSession({
       user: req.user.userId,
       title,
       description,
       type: type || 'solo',
-      status: 'planned',
+      status,
       maxParticipants: type === 'group' ? (maxParticipants || 10) : 1,
-      scheduledStart: scheduledStart || new Date(),
-      checkpoints: processedCheckpoints,
+      startTime: startTime || new Date(),
+      runStyle: runStyle || 'free', 
+      privacy: privacy || 'public',
       participants: [{
         user: req.user.userId,
         role: 'host',
         joinedAt: new Date(),
         status: 'ready'
-      }],
-      runStyle: processedCheckpoints.length > 0 ? 'checkpoint' : 'free'
+      }]
     });
 
+    console.log('Run session before save:', runSession);
     await runSession.save();
     await runSession.populate('user', 'username profileImage');
     await runSession.populate('participants.user', 'username profileImage');
+    console.log('Run session after save:', runSession);
     
     res.status(201).json({ 
       message: 'Run session created successfully',
@@ -139,31 +135,63 @@ router.post('/:runId/join', authenticateToken, async (req, res) => {
   }
 });
 
-// Leave a group run
+// Leave a run
 router.post('/:runId/leave', authenticateToken, async (req, res) => {
   try {
-    const runSession = await RunSession.findById(req.params.runId);
+    console.log('Attempting to leave run:', req.params.runId);
+    const userId = req.user.userId.toString();
+    console.log('User ID (string):', userId);
+
+    let runSession = await RunSession.findById(req.params.runId)
+      .populate('user', 'username profileImage')
+      .populate('participants.user', 'username profileImage');
     
     if (!runSession) {
+      console.log('Run session not found');
       return res.status(404).json({ error: 'Run session not found' });
     }
 
+    console.log('Found run session:', {
+      id: runSession._id.toString(),
+      title: runSession.title,
+      participants: runSession.participants.map(p => ({
+        id: p.user.toString(),
+        role: p.role
+      }))
+    });
+
     const participantIndex = runSession.participants.findIndex(
-      p => p.user.toString() === req.user.userId
+      p => p.user._id.toString() === userId || p.user.toString() === userId
     );
 
+    console.log('Participant index:', participantIndex);
+
     if (participantIndex === -1) {
-      return res.status(400).json({ error: 'You are not in this run' });
+      console.log('User not found in participants. User ID:', userId);
+      console.log('Available participant IDs:', runSession.participants.map(p => p.user.toString()));
+      // Instead of error, return success if user is already not in the run
+      return res.json({ message: 'User is not in this run' });
     }
+
+    console.log('Found participant with role:', runSession.participants[participantIndex].role);
 
     if (runSession.participants[participantIndex].role === 'host') {
+      console.log('Host is leaving, cancelling run');
       runSession.status = 'cancelled';
+      await runSession.save();
+      return res.json({ message: 'Run cancelled successfully' });
     } else {
+      console.log('Participant is leaving, removing from participants array');
       runSession.participants.splice(participantIndex, 1);
+      await runSession.save();
+      
+      // Fetch the updated run session
+      runSession = await RunSession.findById(req.params.runId)
+        .populate('user', 'username profileImage')
+        .populate('participants.user', 'username profileImage');
+        
+      return res.json(runSession);
     }
-
-    await runSession.save();
-    res.json({ message: 'Successfully left run session' });
   } catch (error) {
     console.error('Error leaving run:', error);
     res.status(500).json({ error: 'Failed to leave run session' });

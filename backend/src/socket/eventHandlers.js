@@ -261,15 +261,37 @@ class SocketEventHandlers {
         throw new Error('Missing required parameters: userId and runSessionId are required');
       }
 
-      const runSession = await RunSession.findById(runSessionId)
-        .populate('user', 'username profileImage')
-        .populate('participants.user', 'username profileImage');
-
-      if (!runSession) {
-        throw new Error('Run session not found');
+      const mongoose = require('mongoose');
+      const ObjectId = mongoose.Types.ObjectId;
+      
+      // Create a new run session if the ID is a timestamp
+      let runSession;
+      if (runSessionId.length !== 24) {
+        console.log('Creating new run session with timestamp ID:', runSessionId);
+        runSession = new RunSession({
+          _id: new ObjectId(),
+          user: userId,
+          startTime: new Date(parseInt(runSessionId)),
+          status: 'active',
+          participants: [{ user: userId, role: 'creator' }],
+          locations: [],
+          chat: []
+        });
+        await runSession.save();
+        runSessionId = runSession._id.toString();
       }
 
-      console.log('Run session found:', {
+      if (!runSession) {
+        runSession = await RunSession.findById(runSessionId)
+          .populate('user', 'username profileImage')
+          .populate('participants.user', 'username profileImage');
+
+        if (!runSession) {
+          throw new Error('Run session not found');
+        }
+      }
+
+      console.log('Run session found/created:', {
         id: runSession._id,
         status: runSession.status,
         participantCount: runSession.participants.length

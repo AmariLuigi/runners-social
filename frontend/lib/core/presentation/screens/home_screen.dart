@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../features/feed/presentation/screens/feed_screen.dart';
-import '../../../features/run/presentation/screens/run_screen.dart';
+import '../../../features/run/presentation/screens/runs_list_screen.dart';
 import '../../../features/profile/presentation/screens/profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -14,7 +14,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   final _pages = const [
     FeedScreen(),
-    RunScreen(),
+    RunsListScreen(),
     ProfileScreen(),
   ];
 
