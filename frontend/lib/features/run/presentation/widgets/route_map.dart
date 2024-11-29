@@ -292,10 +292,6 @@ class _RouteMapState extends ConsumerState<RouteMap> {
             mapType: MapType.normal,
           ),
         ),
-        if (!widget.isEditable)
-          Container(
-            color: Colors.grey.withOpacity(0.5),
-          ),
         if (widget.isEditable && widget.routePoints.isNotEmpty)
           Positioned(
             bottom: 16,
