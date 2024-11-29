@@ -166,16 +166,32 @@ class _RunDetailsScreenState extends ConsumerState<RunDetailsScreen> {
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 8),
-                    if (widget.run.routePoints != null && widget.run.routePoints!.isNotEmpty)
-                      SizedBox(
-                        height: 300,
-                        child: RouteMap(
-                          routePoints: widget.run.routePoints!,
-                          isEditable: false,
-                        ),
-                      )
-                    else
-                      const Text('No planned route'),
+                    Builder(
+                      builder: (context) {
+                        // Debug logging for route points
+                        print('\nRun Details - Route Points Debug:');
+                        print('Run ID: ${widget.run.id}');
+                        print('Has routePoints: ${widget.run.routePoints != null}');
+                        print('RoutePoints length: ${widget.run.routePoints?.length ?? 0}');
+                        if (widget.run.routePoints != null) {
+                          print('Route Points:');
+                          for (var point in widget.run.routePoints!) {
+                            print('  - Point ${point.order}: (${point.latitude}, ${point.longitude})');
+                          }
+                        }
+                        
+                        if (widget.run.routePoints != null && widget.run.routePoints!.isNotEmpty)
+                          return SizedBox(
+                            height: 300,
+                            child: RouteMap(
+                              routePoints: widget.run.routePoints!,
+                              isEditable: false,
+                            ),
+                          );
+                        else
+                          return const Text('No planned route');
+                      }
+                    ),
                   ],
                 ),
               ),

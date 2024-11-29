@@ -52,10 +52,13 @@ router.post('/', authenticateToken, async (req, res) => {
       checkpoints,
       runStyle,
       privacy,
-      status = 'planned'
+      status = 'planned',
+      routePoints,
+      plannedDistance
     } = req.body;
 
     console.log('Creating run with user:', req.user.userId);
+    console.log('Route points:', routePoints);
 
     const runSession = new RunSession({
       user: req.user.userId,
@@ -67,6 +70,8 @@ router.post('/', authenticateToken, async (req, res) => {
       startTime: startTime || new Date(),
       runStyle: runStyle || 'free', 
       privacy: privacy || 'public',
+      routePoints: routePoints || [],
+      plannedDistance,
       participants: [{
         user: req.user.userId,
         role: 'host',
