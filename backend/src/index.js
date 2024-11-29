@@ -11,6 +11,7 @@ const runRoutes = require('./routes/runRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 const achievementRoutes = require('./routes/achievementRoutes');
 const feedRoutes = require('./routes/feedRoutes');
+const mapsRoutes = require('./routes/maps');
 
 dotenv.config();
 
@@ -86,6 +87,7 @@ app.use('/api/runs', runRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/achievements', achievementRoutes);
 app.use('/api/feed', feedRoutes);
+app.use('/api/maps', mapsRoutes);
 
 // Serve static files
 app.use('/static', express.static('public'));

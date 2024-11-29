@@ -110,6 +110,15 @@ const runSessionSchema = new mongoose.Schema({
     enum: ['free', 'checkpoint', 'race'],
     default: 'free'
   },
+  plannedDistance: {
+    type: Number,
+    required: false,
+  },
+  routePoints: [{
+    latitude: Number,
+    longitude: Number,
+    order: Number,
+  }],
   participants: [{
     user: {
       type: mongoose.Schema.Types.ObjectId,

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../../domain/entities/run.dart';
+import '../../../../core/services/api_service.dart';
 
 final routeMapControllerProvider = StateProvider<GoogleMapController?>((ref) => null);
 
@@ -34,164 +34,201 @@ class _RouteMapState extends ConsumerState<RouteMap> {
   @override
   void initState() {
     super.initState();
-    _initializeMap();
+    _loadInitialPosition();
   }
 
-  Future<void> _initializeMap() async {
+  Future<void> _loadInitialPosition() async {
+    setState(() => _isLoading = true);
     try {
-      final position = await Geolocator.getCurrentPosition();
-      setState(() {
+      // Request permission first
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      
+      if (permission == LocationPermission.denied || 
+          permission == LocationPermission.deniedForever) {
+        // Default to a fallback location if permission denied
+        _center = const LatLng(45.4642, 9.1900); // Milan, Italy
+      } else {
+        final position = await Geolocator.getCurrentPosition();
         _center = LatLng(position.latitude, position.longitude);
-        _isLoading = false;
-      });
-      _updateMapPoints();
-    } catch (e) {
-      print('Error getting location: $e');
-      setState(() {
-        _center = const LatLng(0, 0);
-        _isLoading = false;
-      });
-    }
-  }
+      }
 
-  @override
-  void didUpdateWidget(RouteMap oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.routePoints != widget.routePoints) {
-      _updateMapPoints();
-    }
-  }
+      // If we have route points, center on those instead
+      if (widget.routePoints.isNotEmpty) {
+        final firstPoint = widget.routePoints.first;
+        _center = LatLng(firstPoint.latitude, firstPoint.longitude);
+        
+        // Add markers and polylines for existing route
+        _markers.clear();
+        _polylines.clear();
+        
+        for (int i = 0; i < widget.routePoints.length; i++) {
+          final point = widget.routePoints[i];
+          final isStart = i == 0;
+          final isEnd = i == widget.routePoints.length - 1;
+          
+          _markers.add(
+            Marker(
+              markerId: MarkerId('point_$i'),
+              position: LatLng(point.latitude, point.longitude),
+              icon: BitmapDescriptor.defaultMarkerWithHue(
+                isStart ? BitmapDescriptor.hueGreen :
+                isEnd ? BitmapDescriptor.hueRed :
+                BitmapDescriptor.hueBlue,
+              ),
+            ),
+          );
 
-  Future<List<LatLng>> _getRoutePoints(LatLng origin, LatLng destination) async {
-    final String url = 'https://maps.googleapis.com/maps/api/directions/json?'
-        'origin=${origin.latitude},${origin.longitude}'
-        '&destination=${destination.latitude},${destination.longitude}'
-        '&mode=walking'
-        '&key=$_googleApiKey';
-
-    try {
-      final response = await http.get(Uri.parse(url));
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['status'] == 'OK') {
-          final points = _decodePolyline(data['routes'][0]['overview_polyline']['points']);
-          return points;
+          // Add polyline between consecutive points
+          if (i < widget.routePoints.length - 1) {
+            final nextPoint = widget.routePoints[i + 1];
+            await _addRouteBetweenPoints(
+              LatLng(point.latitude, point.longitude),
+              LatLng(nextPoint.latitude, nextPoint.longitude),
+            );
+          }
         }
       }
     } catch (e) {
-      print('Error fetching route: $e');
+      print('Error loading initial position: $e');
+      // Fallback to a default location
+      _center = const LatLng(45.4642, 9.1900); // Milan, Italy
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
-    
-    // Fallback to straight line if route fetching fails
-    return [origin, destination];
   }
 
-  List<LatLng> _decodePolyline(String encoded) {
-    List<LatLng> points = [];
-    int index = 0, len = encoded.length;
-    int lat = 0, lng = 0;
+  Future<void> _addRouteBetweenPoints(LatLng start, LatLng end) async {
+    try {
+      print('Requesting route between:');
+      print('Start: ${start.latitude}, ${start.longitude}');
+      print('End: ${end.latitude}, ${end.longitude}');
 
-    while (index < len) {
-      int b, shift = 0, result = 0;
-      do {
-        b = encoded.codeUnitAt(index++) - 63;
-        result |= (b & 0x1F) << shift;
-        shift += 5;
-      } while (b >= 0x20);
-      int dlat = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
-      lat += dlat;
-
-      shift = 0;
-      result = 0;
-      do {
-        b = encoded.codeUnitAt(index++) - 63;
-        result |= (b & 0x1F) << shift;
-        shift += 5;
-      } while (b >= 0x20);
-      int dlng = ((result & 1) != 0 ? ~(result >> 1) : (result >> 1));
-      lng += dlng;
-
-      points.add(LatLng(lat / 1E5, lng / 1E5));
-    }
-    return points;
-  }
-
-  void _updateMapPoints() async {
-    if (widget.routePoints.isEmpty) {
-      setState(() {
-        _center = const LatLng(0, 0);
-        _markers = {};
-        _polylines = {};
-      });
-      return;
-    }
-
-    final points = widget.routePoints.map((point) => 
-      LatLng(point.latitude, point.longitude)).toList();
-
-    _center = points.first;
-    
-    // Create markers with custom icons for start and end
-    _markers = widget.routePoints.asMap().entries.map((entry) {
-      final i = entry.key;
-      final point = entry.value;
-      final latLng = LatLng(point.latitude, point.longitude);
-      
-      final isStart = i == 0;
-      final isEnd = i == widget.routePoints.length - 1;
-
-      return Marker(
-        markerId: MarkerId('point_$i'),
-        position: latLng,
-        draggable: widget.isEditable,
-        onDragEnd: widget.isEditable 
-          ? (newPosition) => _updateMarkerPosition(i, newPosition)
-          : null,
-        icon: BitmapDescriptor.defaultMarkerWithHue(
-          isStart ? BitmapDescriptor.hueGreen :
-          isEnd ? BitmapDescriptor.hueRed :
-          BitmapDescriptor.hueAzure
-        ),
-        infoWindow: InfoWindow(
-          title: isStart ? 'Start' :
-                 isEnd ? 'End' :
-                 'Waypoint ${i + 1}',
-          snippet: 'Drag to adjust',
-        ),
+      final apiService = ApiService();
+      final response = await apiService.get(
+        '/api/maps/directions',
+        queryParameters: {
+          'origin': '${start.latitude},${start.longitude}',
+          'destination': '${end.latitude},${end.longitude}',
+          'mode': 'walking',
+          'alternatives': 'false',
+          'optimize': 'true'
+        },
       );
-    }).toSet();
 
-    // Create route between points
-    if (points.length > 1) {
-      List<LatLng> routePoints = [];
-      
-      // Get route between each consecutive pair of points
-      for (int i = 0; i < points.length - 1; i++) {
-        final start = points[i];
-        final end = points[i + 1];
-        final segmentPoints = await _getRoutePoints(start, end);
-        routePoints.addAll(segmentPoints);
+      final data = response.data;
+      if (data == null || data['routes'] == null || data['routes'].isEmpty) {
+        print('No routes found in response');
+        return;
+      }
+
+      final route = data['routes'][0];
+      final List<LatLng> routePoints = [];
+
+      // Add all points from the route steps
+      if (route['legs'] != null && route['legs'].isNotEmpty) {
+        final leg = route['legs'][0];
+        for (final step in leg['steps']) {
+          if (step['start_location'] != null) {
+            routePoints.add(LatLng(
+              step['start_location']['lat'].toDouble(),
+              step['start_location']['lng'].toDouble()
+            ));
+          }
+          if (step['end_location'] != null) {
+            routePoints.add(LatLng(
+              step['end_location']['lat'].toDouble(),
+              step['end_location']['lng'].toDouble()
+            ));
+          }
+        }
       }
 
       setState(() {
-        _polylines = {
+        // Add the new polyline
+        _polylines.add(
           Polyline(
-            polylineId: const PolylineId('route'),
+            polylineId: PolylineId('route_${_polylines.length}'),
             points: routePoints,
             color: Colors.blue,
-            width: 5,
-            patterns: [
-              PatternItem.dash(20.0),
-              PatternItem.gap(10.0),
-            ],
+            width: 4,
+            startCap: Cap.roundCap,
+            endCap: Cap.roundCap,
           ),
-        };
+        );
       });
-    } else {
-      setState(() {
-        _polylines = {};
-      });
+    } catch (e, stackTrace) {
+      print('Error fetching route: $e');
+      print('Stack trace: $stackTrace');
     }
+  }
+
+  void _updateMarkerIcons() {
+    final markersList = _markers.toList();
+    if (markersList.isEmpty) return;
+
+    // Create a new set of markers with updated icons
+    final updatedMarkers = <Marker>{};
+    
+    for (int i = 0; i < markersList.length; i++) {
+      final marker = markersList[i];
+      final isStart = i == 0;
+      final isEnd = i == markersList.length - 1;
+      
+      updatedMarkers.add(
+        Marker(
+          markerId: marker.markerId,
+          position: marker.position,
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            isStart ? BitmapDescriptor.hueGreen :
+            isEnd ? BitmapDescriptor.hueRed :
+            BitmapDescriptor.hueBlue,
+          ),
+        ),
+      );
+    }
+
+    _markers.clear();
+    _markers.addAll(updatedMarkers);
+  }
+
+  Future<void> _addMarker(LatLng position) async {
+    if (!widget.isEditable) return;
+
+    setState(() {
+      // Add the new marker
+      _markers.add(
+        Marker(
+          markerId: MarkerId('point_${_markers.length}'),
+          position: position,
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+        ),
+      );
+
+      // Update all marker icons
+      _updateMarkerIcons();
+    });
+
+    // If we have at least 2 markers, draw route between the last two points
+    if (_markers.length >= 2) {
+      final lastIndex = _markers.length - 1;
+      final start = _markers.elementAt(lastIndex - 1).position;
+      final end = _markers.elementAt(lastIndex).position;
+      await _addRouteBetweenPoints(start, end);
+    }
+
+    // Update route points for the form
+    final updatedPoints = _markers.map((marker) => RoutePoint(
+      latitude: marker.position.latitude,
+      longitude: marker.position.longitude,
+      order: _markers.toList().indexOf(marker),
+    )).toList();
+
+    widget.onRouteChanged?.call(updatedPoints);
   }
 
   void _updateMarkerPosition(int index, LatLng newPosition) {
@@ -201,18 +238,6 @@ class _RouteMapState extends ConsumerState<RouteMap> {
       longitude: newPosition.longitude,
       order: index,
     );
-    widget.onRouteChanged?.call(updatedPoints);
-  }
-
-  void _addMarker(LatLng position) {
-    if (!widget.isEditable) return;
-
-    final updatedPoints = List<RoutePoint>.from(widget.routePoints);
-    updatedPoints.add(RoutePoint(
-      latitude: position.latitude,
-      longitude: position.longitude,
-      order: updatedPoints.length,
-    ));
     widget.onRouteChanged?.call(updatedPoints);
   }
 
@@ -229,6 +254,14 @@ class _RouteMapState extends ConsumerState<RouteMap> {
       );
     }
     return totalDistance;
+  }
+
+  void _clearRoute() {
+    setState(() {
+      _markers.clear();
+      _polylines.clear();
+    });
+    widget.onRouteChanged?.call([]);
   }
 
   @override
@@ -268,13 +301,9 @@ class _RouteMapState extends ConsumerState<RouteMap> {
             bottom: 16,
             right: 16,
             child: FloatingActionButton(
-              onPressed: () {
-                final updatedPoints = List<RoutePoint>.from(widget.routePoints);
-                updatedPoints.removeLast();
-                widget.onRouteChanged?.call(updatedPoints);
-              },
+              onPressed: _clearRoute,
               child: const Icon(Icons.undo),
-              tooltip: 'Undo last point',
+              tooltip: 'Clear route',
             ),
           ),
       ],
