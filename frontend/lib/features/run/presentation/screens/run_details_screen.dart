@@ -132,110 +132,194 @@ class _RunDetailsScreenState extends ConsumerState<RunDetailsScreen> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Run Details',
-              style: Theme.of(context).textTheme.titleLarge,
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(32),
+                  bottomRight: Radius.circular(32),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Run Details',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.calendar_today,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        DateFormat('MMM d, y • h:mm a').format(widget.run.startTime),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 16),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Description',
-                      style: Theme.of(context).textTheme.titleMedium,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 16),
+                  Text(
+                    'Route',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
                     ),
-                    const SizedBox(height: 8),
-                    Text(widget.run.description),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Start Time',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(DateFormat('MMM d, y • h:mm a').format(widget.run.startTime)),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Route',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    Builder(
-                      builder: (context) {
-                        // Debug logging for route points
-                        print('\nRun Details - Route Points Debug:');
-                        print('Run ID: ${widget.run.id}');
-                        print('Has routePoints: ${widget.run.routePoints != null}');
-                        print('RoutePoints length: ${widget.run.routePoints?.length ?? 0}');
-                        if (widget.run.routePoints != null) {
-                          print('Route Points:');
-                          for (var point in widget.run.routePoints!) {
-                            print('  - Point ${point.order}: (${point.latitude}, ${point.longitude})');
-                          }
+                  ),
+                  const SizedBox(height: 8),
+                  Builder(
+                    builder: (context) {
+                      // Debug logging for route points
+                      print('\nRun Details - Route Points Debug:');
+                      print('Run ID: ${widget.run.id}');
+                      print('Has routePoints: ${widget.run.routePoints != null}');
+                      print('RoutePoints length: ${widget.run.routePoints?.length ?? 0}');
+                      if (widget.run.routePoints != null) {
+                        print('Route Points:');
+                        for (var point in widget.run.routePoints!) {
+                          print('  - Point ${point.order}: (${point.latitude}, ${point.longitude})');
                         }
-                        
-                        if (widget.run.routePoints != null && widget.run.routePoints!.isNotEmpty)
-                          return SizedBox(
-                            height: 300,
+                      }
+                      
+                      if (widget.run.routePoints != null && widget.run.routePoints!.isNotEmpty)
+                        return Container(
+                          height: 300,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
                             child: RouteMap(
                               routePoints: widget.run.routePoints!,
                               isEditable: false,
                             ),
-                          );
-                        else
-                          return const Text('No planned route');
-                      }
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Participants',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    ...widget.run.participants.map((participant) => ListTile(
-                      leading: const CircleAvatar(
-                        child: Icon(Icons.person),
-                      ),
-                      title: Text(participant.username),
-                      subtitle: Text(participant.role),
-                    )),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (!widget.run.isParticipant &&
-                widget.run.status == RunStatus.planned)
-              Center(
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(200, 45),
-                  ),
-                  onPressed: () async {
-                    await ref.read(runProvider.notifier).joinRun(widget.run.id);
-                    if (context.mounted) {
-                      Navigator.of(context).pop();
+                          ),
+                        );
+                      else
+                        return const Text('No planned route');
                     }
-                  },
-                  child: const Text('Join Run'),
-                ),
+                  ),
+                  const SizedBox(height: 24),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Description',
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          widget.run.description,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Participants',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: widget.run.participants.map((participant) => ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                          child: Icon(
+                            Icons.person,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                        title: Text(
+                          participant.username,
+                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        subtitle: Text(
+                          participant.role,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      )).toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  if (!widget.run.isParticipant &&
+                      widget.run.status == RunStatus.planned)
+                    Center(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size(200, 45),
+                        ),
+                        onPressed: () async {
+                          await ref.read(runProvider.notifier).joinRun(widget.run.id);
+                          if (context.mounted) {
+                            Navigator.of(context).pop();
+                          }
+                        },
+                        child: const Text('Join Run'),
+                      ),
+                    ),
+                ],
               ),
+            ),
           ],
         ),
       ),
