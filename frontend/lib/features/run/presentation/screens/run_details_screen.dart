@@ -18,6 +18,9 @@ class RunDetailsScreen extends ConsumerStatefulWidget {
 }
 
 class _RunDetailsScreenState extends ConsumerState<RunDetailsScreen> {
+  bool _isDescriptionExpanded = true;  // Start expanded by default
+  bool _isParticipantsExpanded = true;  // Add state for participants section
+
   @override
   Widget build(BuildContext context) {
     // TODO: Replace with actual user ID from auth provider
@@ -228,76 +231,119 @@ class _RunDetailsScreenState extends ConsumerState<RunDetailsScreen> {
                     }
                   ),
                   const SizedBox(height: 24),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surface,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Description',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        _isDescriptionExpanded = !_isDescriptionExpanded;
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          widget.run.description,
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                      ],
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Description',
+                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Icon(
+                                _isDescriptionExpanded 
+                                  ? Icons.keyboard_arrow_up 
+                                  : Icons.keyboard_arrow_down,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            ],
+                          ),
+                          if (_isDescriptionExpanded) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              widget.run.description,
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),
-                  Text(
-                    'Participants',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surface,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: widget.run.participants.map((participant) => ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                          child: Icon(
-                            Icons.person,
-                            color: Theme.of(context).colorScheme.primary,
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        _isParticipantsExpanded = !_isParticipantsExpanded;
+                      });
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
                           ),
-                        ),
-                        title: Text(
-                          participant.username,
-                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Participants',
+                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Icon(
+                                  _isParticipantsExpanded 
+                                    ? Icons.keyboard_arrow_up 
+                                    : Icons.keyboard_arrow_down,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        subtitle: Text(
-                          participant.role,
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      )).toList(),
+                          if (_isParticipantsExpanded)
+                            ...widget.run.participants.map((participant) => ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                                child: Icon(
+                                  Icons.person,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
+                              title: Text(
+                                participant.username,
+                                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              subtitle: Text(
+                                participant.role,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            )).toList(),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),
